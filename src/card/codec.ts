@@ -1,10 +1,12 @@
 import { cardTemplates, type CardDraft } from '../data/templates'
+import { messageFonts, type MessageFontId } from '../data/typography'
 
 export const CARD_SCHEMA_VERSION = 1
 
 export type EncodedCard = CardDraft & {
   v: typeof CARD_SCHEMA_VERSION
   template: string
+  messageFont?: MessageFontId
 }
 
 export type DecodeResult =
@@ -32,6 +34,7 @@ export function encodeCard(card: CardDraft, templateId: string) {
     to: card.to.trim(),
     message: card.message.trim(),
     from: card.from.trim(),
+    ...(card.messageFont ? { messageFont: card.messageFont } : {}),
   }
   return toBase64Url(JSON.stringify(payload))
 }
@@ -52,6 +55,9 @@ export function decodeCardPayload(payload: string): DecodeResult {
     if (typeof candidate.to !== 'string' || candidate.to.length > 60) return { ok: false, reason: 'invalid' }
     if (typeof candidate.message !== 'string' || candidate.message.length > 500) return { ok: false, reason: 'invalid' }
     if (typeof candidate.from !== 'string' || candidate.from.length > 60) return { ok: false, reason: 'invalid' }
+    const template = cardTemplates.find(({ id }) => id === candidate.template)!
+    const requestedFont = typeof candidate.messageFont === 'string' ? candidate.messageFont : undefined
+    const messageFont = messageFonts.find(({ id }) => id === requestedFont)?.id
     return {
       ok: true,
       card: {
@@ -60,6 +66,7 @@ export function decodeCardPayload(payload: string): DecodeResult {
         to: candidate.to,
         message: candidate.message,
         from: candidate.from,
+        messageFont: messageFont || template.typography.defaultMessageFont,
       },
     }
   } catch {

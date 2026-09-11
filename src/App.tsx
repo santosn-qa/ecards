@@ -3,6 +3,7 @@ import { decodeCardHash, createCardUrl, encodeCard, type DecodeResult } from './
 import { CardRenderer } from './components/CardRenderer'
 import { downloadCardPng } from './components/downloadCardPng'
 import { cardTemplates, occasions, type CardDraft, type Occasion } from './data/templates'
+import { getMessageFont, messageFonts, type MessageFontId } from './data/typography'
 import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
@@ -53,6 +54,13 @@ function App() {
     )
   }
 
+  function selectTemplate(templateId: string) {
+    const nextTemplate = cardTemplates.find((template) => template.id === templateId)
+    if (!nextTemplate) return
+    setSelectedTemplateId(templateId)
+    setDraft((current) => ({ ...current, messageFont: nextTemplate.typography.defaultMessageFont }))
+  }
+
   if (sharedResult && !sharedResult.ok) {
     return (
       <div className="app-shell shared-shell">
@@ -74,7 +82,10 @@ function App() {
   function handleOccasionChange(nextOccasion: Occasion) {
     setOccasion(nextOccasion)
     const firstTemplate = cardTemplates.find((template) => template.occasion === nextOccasion)
-    if (firstTemplate) setSelectedTemplateId(firstTemplate.id)
+    if (firstTemplate) {
+      setSelectedTemplateId(firstTemplate.id)
+      setDraft((current) => ({ ...current, messageFont: firstTemplate.typography.defaultMessageFont }))
+    }
   }
 
   function updateDraft(field: keyof CardDraft, value: string) {
@@ -157,8 +168,13 @@ function App() {
             </div>
             <div className="template-grid">
               {visibleTemplates.map((template) => (
-                <button className={`template-button ${selectedTemplate.id === template.id ? 'is-selected' : ''}`} key={template.id} type="button" onClick={() => setSelectedTemplateId(template.id)} aria-label={`Choose ${template.name} design`} aria-pressed={selectedTemplate.id === template.id}>
-                  <div className={`template-art ${template.artClass}`}><span className="art-sun" aria-hidden="true" /><span className="art-shape art-shape-one" aria-hidden="true" /><span className="art-shape art-shape-two" aria-hidden="true" /><span className="art-stars" aria-hidden="true">✦  ·  ✧</span></div>
+                <button className={`template-button ${selectedTemplate.id === template.id ? 'is-selected' : ''}`} key={template.id} type="button" onClick={() => selectTemplate(template.id)} aria-label={`Choose ${template.name} design`} aria-pressed={selectedTemplate.id === template.id}>
+                  <div className={`template-art ${template.artClass} card-style-${template.style}`} aria-hidden="true">
+                    <span className="gallery-orbit" />
+                    <span className="gallery-flower">✽</span>
+                    <span className="gallery-spark">✦</span>
+                    <span className="gallery-line">~</span>
+                  </div>
                   <span className="template-name">{template.name}</span>
                 </button>
               ))}
@@ -169,6 +185,28 @@ function App() {
                 <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
                 <label><span>Your message <small>{draft.message.length}/500</small></span><textarea value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} /></label>
                 <label><span>From <small>optional</small></span><input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" /></label>
+              </div>
+              <div className="font-picker" aria-labelledby="message-font-title">
+                <div className="font-picker-heading">
+                  <span id="message-font-title">Personality for your message</span>
+                  <small>Recommended: {getMessageFont(selectedTemplate.typography.defaultMessageFont).name}</small>
+                </div>
+                <div className="font-options" role="listbox" aria-label="Message font">
+                  {messageFonts.map((font) => (
+                    <button
+                      className={`font-option ${(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id ? 'is-selected' : ''}`}
+                      key={font.id}
+                      type="button"
+                      role="option"
+                      aria-selected={(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id}
+                      onClick={() => setDraft((current) => ({ ...current, messageFont: font.id as MessageFontId }))}
+                    >
+                      <span className="font-option-name" style={{ fontFamily: font.family }}>{font.name}</span>
+                      <span className="font-option-sample" style={{ fontFamily: font.family }}>{font.sample}</span>
+                      <span className="font-option-category">{font.category}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="share-actions">
                 <button className="primary-action" type="button" onClick={shareCard}>Share Card</button>

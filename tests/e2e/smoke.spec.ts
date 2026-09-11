@@ -47,3 +47,22 @@ test('downloads a PNG from the editor', async ({ page }) => {
   const download = await downloadPromise
   expect(download.suggestedFilename()).toMatch(/little-hello-birthday-confetti-01\.png/)
 })
+
+test('applies an expressive message font and preserves it in shared cards', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: /Your message/ }).fill('A beautiful day for you.')
+
+  const preview = page.getByRole('complementary', { name: 'Live card preview' })
+  const before = await preview.locator('.preview-message').evaluate((element) => getComputedStyle(element).fontFamily)
+  await page.locator('.font-option').filter({ hasText: 'Dancing Script' }).click()
+  const after = await preview.locator('.preview-message').evaluate((element) => getComputedStyle(element).fontFamily)
+  expect(after).not.toBe(before)
+
+  const toFrom = preview.locator('.preview-to, .preview-from')
+  const supportingFont = await toFrom.first().evaluate((element) => getComputedStyle(element).fontFamily)
+  expect(await toFrom.last().evaluate((element) => getComputedStyle(element).fontFamily)).toBe(supportingFont)
+
+  const url = await page.getByRole('textbox', { name: 'Share link' }).inputValue()
+  await page.goto(url)
+  await expect(page.locator('.preview-message')).toHaveClass(/message-font-dancing-script/)
+})

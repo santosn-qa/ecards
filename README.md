@@ -44,6 +44,14 @@ placeholder templates, constrained editor, and a live preview. Phase 2 adds
 versioned hash serialization, validated shared-card links, a presentation-only
 shared-card viewer, Clipboard/Web Share actions, and native PNG export.
 
+The message typography system provides a small curated set of stable font IDs.
+Each template recommends a default personality, while the editor lets users
+choose a different font for the main message. To and From remain on the
+supporting UI font. The selected font ID is included in new shared URLs;
+older URLs without that field continue to use the template default. Font
+families use local/system-safe stacks so cards remain usable offline and PNG
+exports use the same stable mapping.
+
 ## Local development
 
 ```bash
