@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { decodeCardHash, createCardUrl, encodeCard, type DecodeResult } from './card/codec'
 import { CardRenderer } from './components/CardRenderer'
+import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
 import { cardTemplates, occasions, type CardDraft, type Occasion } from './data/templates'
 import { getMessageFont, messageFonts, type MessageFontId } from './data/typography'
@@ -170,10 +171,7 @@ function App() {
               {visibleTemplates.map((template) => (
                 <button className={`template-button ${selectedTemplate.id === template.id ? 'is-selected' : ''}`} key={template.id} type="button" onClick={() => selectTemplate(template.id)} aria-label={`Choose ${template.name} design`} aria-pressed={selectedTemplate.id === template.id}>
                   <div className={`template-art ${template.artClass} card-style-${template.style}`} aria-hidden="true">
-                    <span className="gallery-orbit" />
-                    <span className="gallery-flower">✽</span>
-                    <span className="gallery-spark">✦</span>
-                    <span className="gallery-line">~</span>
+                    <CardArtwork template={template} />
                   </div>
                   <span className="template-name">{template.name}</span>
                 </button>

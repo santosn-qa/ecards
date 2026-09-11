@@ -52,6 +52,11 @@ older URLs without that field continue to use the template default. Font
 families use local/system-safe stacks so cards remain usable offline and PNG
 exports use the same stable mapping.
 
+The visual collections use original artwork generated in-house with AI tools
+(Google Gemini), reviewed, cropped, and optimized before being bundled as
+static assets. No third-party or public-domain photography/illustration is
+used.
+
 ## Local development
 
 ```bash

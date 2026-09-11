@@ -12,6 +12,17 @@ export type CardDraft = {
   messageFont?: MessageFontId
 }
 
+export type ArtworkSpec = {
+  asset?: string
+  /** 'full-bleed' assets are complete illustrations rendered edge-to-edge with no additional decoration drawn on top. */
+  illustrationStyle?: 'full-bleed'
+  focalPoint: 'lower-right' | 'upper-right' | 'left' | 'full-bleed'
+  messageSafeArea: { x: number; y: number; width: number; height: number }
+  backgroundColor: string
+  messageColor: string
+  supportingTextColor: string
+}
+
 export type CardTemplate = {
   id: string
   name: string
@@ -19,7 +30,9 @@ export type CardTemplate = {
   artClass: string
   previewClass: string
   style: 'playful' | 'sunny' | 'editorial' | 'botanical' | 'handmade' | 'celebration' | 'romantic' | 'doodle'
+  collection: 'botanical' | 'celebration' | 'artistic'
   tagline: string
+  artwork: ArtworkSpec
   typography: {
     defaultMessageFont: MessageFontId
     messageAlignment: 'left' | 'center' | 'right'
@@ -37,13 +50,14 @@ export const occasions: Occasion[] = [
 
 // IDs are permanent public identifiers. Never reuse an ID for a different design.
 export const cardTemplates: CardTemplate[] = [
-  { id: 'birthday-confetti-01', name: 'Confetti', occasion: 'Birthday', artClass: 'art-confetti', previewClass: 'preview-confetti-card', style: 'playful', tagline: 'Make a little noise', typography: { defaultMessageFont: 'caveat', messageAlignment: 'left', messageMaxWidth: '88%' } },
-  { id: 'birthday-sunshine-01', name: 'Sunshine', occasion: 'Birthday', artClass: 'art-sunshine', previewClass: 'preview-sunshine-card', style: 'sunny', tagline: 'A bright day for you', typography: { defaultMessageFont: 'quicksand', messageAlignment: 'left', messageMaxWidth: '88%' } },
-  { id: 'birthday-party-01', name: 'Party time', occasion: 'Birthday', artClass: 'art-party', previewClass: 'preview-party-card', style: 'celebration', tagline: 'Today is worth celebrating', typography: { defaultMessageFont: 'dancing-script', messageAlignment: 'center', messageMaxWidth: '90%' } },
-  { id: 'thank-you-bloom-01', name: 'Bloom', occasion: 'Thank you', artClass: 'art-bloom', previewClass: 'preview-bloom-card', style: 'botanical', tagline: 'Thank you, truly', typography: { defaultMessageFont: 'satisfy', messageAlignment: 'left', messageMaxWidth: '88%' } },
-  { id: 'thank-you-sincere-01', name: 'Sincere', occasion: 'Thank you', artClass: 'art-sincere', previewClass: 'preview-sincere-card', style: 'editorial', tagline: 'With all my gratitude', typography: { defaultMessageFont: 'cormorant', messageAlignment: 'left', messageMaxWidth: '88%' } },
-  { id: 'congratulations-bright-01', name: 'Bright future', occasion: 'Congratulations', artClass: 'art-bright', previewClass: 'preview-bright-card', style: 'celebration', tagline: 'Look how far you’ve come', typography: { defaultMessageFont: 'dm-serif', messageAlignment: 'center', messageMaxWidth: '92%' } },
-  { id: 'love-together-01', name: 'Together', occasion: 'Love', artClass: 'art-together', previewClass: 'preview-together-card', style: 'romantic', tagline: 'Better together', typography: { defaultMessageFont: 'dancing-script', messageAlignment: 'center', messageMaxWidth: '90%' } },
-  { id: 'just-because-doodle-01', name: 'Doodle day', occasion: 'Just because', artClass: 'art-doodle', previewClass: 'preview-doodle-card', style: 'doodle', tagline: 'A happy little surprise', typography: { defaultMessageFont: 'caveat', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'birthday-confetti-01', name: 'Birthday Garden', occasion: 'Birthday', artClass: 'art-confetti', previewClass: 'preview-confetti-card', style: 'playful', collection: 'celebration', tagline: 'Make a little noise', artwork: { asset: 'celebration-cake-ribbon.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F6F0E4', messageColor: '#4A3B32', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'caveat', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'birthday-sunshine-01', name: 'Sunshine', occasion: 'Birthday', artClass: 'art-sunshine', previewClass: 'preview-sunshine-card', style: 'sunny', collection: 'celebration', tagline: 'A bright day for you', artwork: { asset: 'botanical-pressed-bouquet.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F5EFE1', messageColor: '#4A3B2E', supportingTextColor: '#8A7055' }, typography: { defaultMessageFont: 'quicksand', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'birthday-party-01', name: 'Party time', occasion: 'Birthday', artClass: 'art-party', previewClass: 'preview-party-card', style: 'celebration', collection: 'celebration', tagline: 'Today is worth celebrating', artwork: { asset: 'artistic-midnight-bouquet.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F4EEE0', messageColor: '#46332A', supportingTextColor: '#7A5B4A' }, typography: { defaultMessageFont: 'dancing-script', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'thank-you-bloom-01', name: 'Bloom', occasion: 'Thank you', artClass: 'art-bloom', previewClass: 'preview-bloom-card', style: 'botanical', collection: 'botanical', tagline: 'Thank you, truly', artwork: { asset: 'botanical-gift-letter.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F7F1E6', messageColor: '#493C34', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'satisfy', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'thank-you-sincere-01', name: 'Sincere', occasion: 'Thank you', artClass: 'art-sincere', previewClass: 'preview-sincere-card', style: 'editorial', collection: 'botanical', tagline: 'With all my gratitude', artwork: { asset: 'botanical-envelope-note.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F2ECE0', messageColor: '#493C34', supportingTextColor: '#725747' }, typography: { defaultMessageFont: 'cormorant', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'congratulations-bright-01', name: 'Bright future', occasion: 'Congratulations', artClass: 'art-bright', previewClass: 'preview-bright-card', style: 'celebration', collection: 'celebration', tagline: 'Look how far you’ve come', artwork: { asset: 'celebration-bouquet-toast.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#FAF1E6', messageColor: '#4A3B2E', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'dm-serif', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'love-together-01', name: 'Together', occasion: 'Love', artClass: 'art-together', previewClass: 'preview-together-card', style: 'romantic', collection: 'artistic', tagline: 'Better together', artwork: { asset: 'romantic-morning-mugs.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F7F1E6', messageColor: '#4A3B32', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'dancing-script', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'love-letter-01', name: 'Love letter', occasion: 'Love', artClass: 'art-love-letter', previewClass: 'preview-love-letter-card', style: 'romantic', collection: 'artistic', tagline: 'Written just for you', artwork: { asset: 'romantic-love-letter.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#F8F1E9', messageColor: '#4A3B32', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'satisfy', messageAlignment: 'left', messageMaxWidth: '88%' } },
+  { id: 'just-because-doodle-01', name: 'Doodle day', occasion: 'Just because', artClass: 'art-doodle', previewClass: 'preview-doodle-card', style: 'doodle', collection: 'artistic', tagline: 'A happy little surprise', artwork: { asset: 'whimsical-gardenia-ribbon.jpg', illustrationStyle: 'full-bleed', focalPoint: 'lower-right', messageSafeArea: { x: 40, y: 40, width: 260, height: 420 }, backgroundColor: '#FBF1E7', messageColor: '#4A3B32', supportingTextColor: '#8A6F55' }, typography: { defaultMessageFont: 'caveat', messageAlignment: 'left', messageMaxWidth: '88%' } },
 ]
 import type { MessageFontId } from './typography'

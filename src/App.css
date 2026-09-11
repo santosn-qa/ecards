@@ -78,8 +78,11 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .preview-content { padding: 30px 10%; color: #fff; }
 .preview-tagline { margin: 0 0 18px; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; opacity: .78; }
 .preview-to { margin: 0 0 16px; font-size: .8rem; opacity: .9; }
+.preview-to, .preview-from, .preview-tagline { color: var(--supporting-text-color, currentColor); }
 .preview-message { max-width: 95%; margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(1.45rem, 3vw, 2.2rem); line-height: 1.08; overflow-wrap: anywhere; word-break: normal; hyphens: auto; }
-.preview-from { margin: 0; font-size: .8rem; opacity: .9; }
+.preview-message.message-length-long { font-size: clamp(1.15rem, 2.4vw, 1.7rem); line-height: 1.16; }
+.preview-message.message-length-xlong { font-size: clamp(.95rem, 1.9vw, 1.35rem); line-height: 1.2; }
+.preview-from { margin: 0; font-size: .95rem; font-weight: 600; letter-spacing: .01em; opacity: .95; }
 .preview-caption { position: absolute; right: 7%; bottom: 5%; z-index: 3; color: #fff9; font-size: .56rem; letter-spacing: .18em; text-transform: uppercase; transform: rotate(-90deg); transform-origin: right bottom; }
 .preview-sunshine-card { background: #d7ad54; } .preview-sunshine-card .preview-circle { background: #f8e0a1; }
 .preview-party-card { background: #7897b4; } .preview-party-card .preview-circle { background: #f19a79; }
@@ -117,11 +120,12 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .action-status { min-height: 18px; margin: 12px 0 0; color: #8f857f; font-size: .72rem; overflow-wrap: anywhere; }
 .share-link-field { display: grid; gap: 7px; margin-top: 18px; color: #8f857f; font-size: .72rem; }
 .share-link-field input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #e5ddd8; border-radius: 7px; background: #faf8f6; color: #716965; font-size: .72rem; }
-.shared-main { max-width: 600px; margin: 0 auto; padding: 74px 0 100px; text-align: center; }
+.shared-main { max-width: 600px; margin: 0 auto; padding: 74px 0 100px; text-align: left; }
 .shared-title { margin-bottom: 34px; font-size: clamp(2.3rem, 6vw, 4.2rem); }
-.shared-card-wrap { max-width: 440px; margin: 0 auto; }
-.shared-main .action-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px; }
-.error-state > p:not(.eyebrow) { max-width: 380px; margin: 0 auto 28px; color: #716965; line-height: 1.6; }
+.shared-card-wrap { max-width: 440px; margin: 0; }
+.shared-main .action-row { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px; margin-top: 28px; }
+.shared-main .preview-footnote { text-align: left; }
+.error-state > p:not(.eyebrow) { max-width: 380px; margin: 0 0 28px; color: #716965; line-height: 1.6; }
 .site-footer { display: flex; justify-content: space-between; padding: 22px 0 32px; border-top: 1px solid #e8e1dd; color: #aaa09b; font-size: .72rem; }
 
 @media (max-width: 760px) {
@@ -145,3 +149,171 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
   .template-grid { grid-template-columns: repeat(2, 1fr); }
   .section-heading { align-items: start; flex-direction: column; gap: 9px; }
 }
+
+/* Art-directed collections: illustrated layers replace the former geometric ornament system. */
+.card-preview { border-radius: 3px; box-shadow: 0 24px 50px #34241d2b; }
+.preview-art { z-index: 0; }
+.card-artwork { display: block; width: 100%; height: 100%; }
+.source-art { pointer-events: none; }
+.source-full-bleed { opacity: 1; mix-blend-mode: normal; filter: none; }
+.card-artwork path, .card-artwork circle, .card-artwork ellipse { vector-effect: non-scaling-stroke; }
+.art-paper-wash { fill: #efe1c9; }
+.art-border { fill: none; stroke: #8a6750; stroke-width: 1.3; stroke-dasharray: 2 4; opacity: .75; }
+.art-stem, .art-ink-line { fill: none; stroke: #607b55; stroke-width: 3; stroke-linecap: round; }
+.art-stem-light { stroke: #a9a66e; stroke-width: 1.5; }
+.art-leaves ellipse { fill: #819b68; stroke: #536b4c; stroke-width: 1; }
+.art-flower path { fill: #b9675d; stroke: #814a48; stroke-width: 1; }
+.art-flower circle { fill: #d5a45b; stroke: #814a48; stroke-width: 1; }
+.art-flower-small { transform: translate(15px, 20px); }
+.art-ink-line { stroke: #9e8068; stroke-width: 1.5; opacity: .7; }
+.art-ink-dot { fill: #b9675d; }
+.artwork-editorial .art-paper-wash { fill: #e7ddce; }
+.artwork-editorial .art-leaves ellipse { fill: #9b8b72; }
+.artwork-editorial .art-flower path { fill: #d1a06f; }
+.artwork-editorial .art-flower circle { fill: #7d6c59; }
+/* Bloom and Sincere both use the full-bleed botanical bouquet illustration, with the message living in its plain paper margin. A soft cream wash keeps the text legible even where the illustration bleeds up into the lower-left corner. */
+.card-collection-botanical { background: #f7f1e6; }
+.card-collection-botanical .preview-content { display: flex; flex-direction: column; z-index: 1; align-self: flex-start; width: 66%; height: 100%; padding: 7% 0 6% 8%; justify-content: flex-start; color: #493c34; background: linear-gradient(100deg, rgba(247, 241, 230, .97) 0%, rgba(247, 241, 230, .88) 48%, rgba(247, 241, 230, 0) 82%); }
+.card-collection-botanical .preview-tagline { color: #8a6f55; font-size: .62rem; letter-spacing: .16em; margin-bottom: 10px; }
+.card-collection-botanical .preview-to { margin-bottom: 8px; color: #493c34; font-family: Georgia, serif; font-style: italic; }
+.card-collection-botanical .preview-message { flex: 0 1 auto; margin-bottom: 10px; text-shadow: none; font-size: clamp(.95rem, 2.5vw, 1.65rem); line-height: 1.22; overflow: hidden; }
+.card-collection-botanical .preview-message.message-length-long { font-size: clamp(.78rem, 1.9vw, 1.25rem); line-height: 1.24; }
+.card-collection-botanical .preview-message.message-length-xlong { font-size: clamp(.66rem, 1.5vw, 1rem); line-height: 1.26; }
+.card-collection-botanical .preview-from { margin-top: auto; color: #493c34; font-family: Georgia, serif; font-style: italic; text-shadow: 0 1px 3px rgba(255, 251, 244, .6); }
+.card-collection-botanical .preview-caption { color: #866b57; }
+
+
+.art-celebration-paper { fill: #e77d62; }
+.art-streamer { fill: none; stroke-linecap: round; }
+.art-streamer-one { stroke: #f6cf78; stroke-width: 15; }
+.art-streamer-two { stroke: #9cb9ce; stroke-width: 9; }
+.art-confetti-pieces path, .art-confetti-pieces circle { fill: #f5ce77; }
+.art-confetti-pieces path:nth-child(2), .art-confetti-pieces circle:nth-child(2) { fill: #f2a08a; }
+.art-confetti-pieces path:nth-child(3) { fill: #b9d2bf; }
+.art-cake path:first-child { fill: #f5d8a4; stroke: #854b4c; stroke-width: 2; }
+.art-cake path:nth-child(2) { fill: #f7b8a1; stroke: #854b4c; stroke-width: 2; }
+.art-cake path:nth-child(n+3) { fill: none; stroke: #f8df92; stroke-width: 5; stroke-linecap: round; }
+.art-confetti-sweep { fill: none; stroke: #f4c7b1; stroke-width: 54; opacity: .65; }
+.artwork-sunny .art-celebration-paper { fill: #d5aa55; }
+.artwork-sunny .art-streamer-one { stroke: #f8e2a2; }
+.artwork-sunny .art-streamer-two { stroke: #ec9a61; }
+.artwork-sunny .art-cake path:first-child { fill: #f8e2a2; }
+.artwork-sunny .art-cake path:nth-child(2) { fill: #f3c778; }
+.artwork-celebration.artwork-playful .art-celebration-paper { fill: #e98970; }
+.card-collection-celebration { background: #e77d62; }
+.card-collection-celebration .preview-content { z-index: 1; align-self: flex-start; width: 51%; padding: 15% 0 14% 10%; color: #fff8e9; }
+.card-collection-celebration .preview-tagline { color: #fff0c6; font-size: .65rem; letter-spacing: .12em; }
+.card-collection-celebration .preview-to { color: #fff8e9; font-weight: 600; }
+.card-collection-celebration .preview-message { max-width: 100%; font-size: clamp(1.45rem, 3.5vw, 2.45rem); }
+.card-collection-celebration .preview-from { color: #fff0c6; }
+.card-collection-celebration .preview-caption { color: #fff0c6; }
+.card-collection-celebration .art-streamer-one { opacity: .7; }
+.card-collection-celebration .art-streamer-two { opacity: .7; }
+.card-collection-celebration .art-confetti-sweep { opacity: .3; }
+
+/* Birthday Garden uses a full-bleed illustrated asset with its own cream palette, overriding the shared celebration defaults above. A soft cream wash keeps the text legible where the illustration bleeds into the lower-left corner. */
+.card-collection-celebration.preview-confetti-card { background: #f6f0e4; }
+.card-collection-celebration.preview-confetti-card .preview-content { color: #4a3b32; }
+.card-collection-celebration.preview-confetti-card .preview-tagline { color: #8a6f55; }
+.card-collection-celebration.preview-confetti-card .preview-to { color: #4a3b32; }
+.card-collection-celebration.preview-confetti-card .preview-from { color: #4a3b32; text-shadow: 0 1px 3px rgba(246, 240, 228, .6); }
+.card-collection-celebration.preview-confetti-card .preview-caption { color: #8a6f55; }
+.card-collection-celebration.preview-confetti-card .preview-content { display: flex; flex-direction: column; width: 66%; height: 100%; padding: 7% 0 6% 8%; justify-content: flex-start; background: linear-gradient(100deg, rgba(246, 240, 228, .97) 0%, rgba(246, 240, 228, .88) 48%, rgba(246, 240, 228, 0) 82%); }
+.card-collection-celebration.preview-confetti-card .preview-message { flex: 0 1 auto; margin-bottom: 10px; text-shadow: none; font-size: clamp(.95rem, 2.5vw, 1.65rem); line-height: 1.22; overflow: hidden; }
+.card-collection-celebration.preview-confetti-card .preview-message.message-length-long { font-size: clamp(.78rem, 1.9vw, 1.25rem); line-height: 1.24; }
+.card-collection-celebration.preview-confetti-card .preview-message.message-length-xlong { font-size: clamp(.66rem, 1.5vw, 1rem); line-height: 1.26; }
+.card-collection-celebration.preview-confetti-card .preview-to { margin-bottom: 8px; }
+.card-collection-celebration.preview-confetti-card .preview-tagline { margin-bottom: 10px; }
+.card-collection-celebration.preview-confetti-card .preview-from { margin-top: auto; }
+
+/* Sunshine, Party time, and Bright future share the same full-bleed illustrated treatment as Birthday Garden, each with its own cream wash tuned to its artwork. */
+.card-collection-celebration.preview-sunshine-card,
+.card-collection-celebration.preview-party-card,
+.card-collection-celebration.preview-bright-card { background: #f5efe1; }
+.card-collection-celebration.preview-sunshine-card .preview-content,
+.card-collection-celebration.preview-party-card .preview-content,
+.card-collection-celebration.preview-bright-card .preview-content { color: #4a3b2e; }
+.card-collection-celebration.preview-sunshine-card .preview-tagline,
+.card-collection-celebration.preview-party-card .preview-tagline,
+.card-collection-celebration.preview-bright-card .preview-tagline { color: #8a7055; }
+.card-collection-celebration.preview-sunshine-card .preview-to,
+.card-collection-celebration.preview-party-card .preview-to,
+.card-collection-celebration.preview-bright-card .preview-to { color: #4a3b2e; }
+.card-collection-celebration.preview-sunshine-card .preview-from,
+.card-collection-celebration.preview-party-card .preview-from,
+.card-collection-celebration.preview-bright-card .preview-from { color: #46332a; text-shadow: 0 1px 3px rgba(245, 239, 225, .6); }
+.card-collection-celebration.preview-sunshine-card .preview-caption,
+.card-collection-celebration.preview-party-card .preview-caption,
+.card-collection-celebration.preview-bright-card .preview-caption { color: #8a7055; }
+.card-collection-celebration.preview-sunshine-card .preview-content,
+.card-collection-celebration.preview-party-card .preview-content,
+.card-collection-celebration.preview-bright-card .preview-content { display: flex; flex-direction: column; width: 66%; height: 100%; padding: 7% 0 6% 8%; justify-content: flex-start; background: linear-gradient(100deg, rgba(245, 239, 225, .97) 0%, rgba(245, 239, 225, .88) 48%, rgba(245, 239, 225, 0) 82%); }
+.card-collection-celebration.preview-sunshine-card .preview-message,
+.card-collection-celebration.preview-party-card .preview-message,
+.card-collection-celebration.preview-bright-card .preview-message { flex: 0 1 auto; margin-bottom: 10px; text-shadow: none; font-size: clamp(.95rem, 2.5vw, 1.65rem); line-height: 1.22; overflow: hidden; }
+.card-collection-celebration.preview-sunshine-card .preview-message.message-length-long,
+.card-collection-celebration.preview-party-card .preview-message.message-length-long,
+.card-collection-celebration.preview-bright-card .preview-message.message-length-long { font-size: clamp(.78rem, 1.9vw, 1.25rem); line-height: 1.24; }
+.card-collection-celebration.preview-sunshine-card .preview-message.message-length-xlong,
+.card-collection-celebration.preview-party-card .preview-message.message-length-xlong,
+.card-collection-celebration.preview-bright-card .preview-message.message-length-xlong { font-size: clamp(.66rem, 1.5vw, 1rem); line-height: 1.26; }
+.card-collection-celebration.preview-sunshine-card .preview-to,
+.card-collection-celebration.preview-party-card .preview-to,
+.card-collection-celebration.preview-bright-card .preview-to { margin-bottom: 8px; }
+.card-collection-celebration.preview-sunshine-card .preview-tagline,
+.card-collection-celebration.preview-party-card .preview-tagline,
+.card-collection-celebration.preview-bright-card .preview-tagline { margin-bottom: 10px; }
+.card-collection-celebration.preview-sunshine-card .preview-from,
+.card-collection-celebration.preview-party-card .preview-from,
+.card-collection-celebration.preview-bright-card .preview-from { margin-top: auto; }
+
+.art-night-paper { fill: #202a3d; }
+.art-moon { fill: #e4bd78; opacity: .95; }
+.art-stars circle, .art-stars path { fill: #f4dca0; }
+.art-hill-back { fill: #35465a; }
+.art-hill-front { fill: #172235; }
+.art-branch { fill: none; stroke: #9bb18c; stroke-width: 4; stroke-linecap: round; }
+.art-branch-leaves ellipse { fill: #799b79; }
+.art-collage-paper { fill: #d6a786; opacity: .9; transform: rotate(-3deg); transform-origin: center; }
+.art-collage-line { fill: none; stroke: #774e52; stroke-width: 3; opacity: .8; }
+.artwork-doodle .art-night-paper { fill: #c7944f; }
+.artwork-doodle .art-moon { fill: #fae0a8; }
+.artwork-doodle .art-hill-back { fill: #dfae67; }
+.artwork-doodle .art-hill-front { fill: #9d7148; }
+.artwork-doodle .art-branch, .artwork-doodle .art-branch-leaves ellipse { stroke: #6e5640; fill: #876849; }
+.card-collection-artistic { background: #202a3d; }
+.card-collection-artistic .preview-content { z-index: 1; align-self: flex-end; width: 68%; padding: 11% 11% 13% 3%; color: #f7ead1; }
+.card-collection-artistic .preview-tagline { color: #d6a786; font-size: .62rem; letter-spacing: .2em; }
+.card-collection-artistic .preview-to { color: #e4bd78; font-family: Georgia, serif; }
+.card-collection-artistic .preview-message { font-size: clamp(1.7rem, 4vw, 2.7rem); }
+.card-collection-artistic .preview-from { color: #d6a786; font-family: Georgia, serif; }
+.card-collection-artistic .preview-caption { color: #d6a786; }
+
+/* Together, Love letter, and Doodle day use full-bleed illustrations with a shared cream palette and left-column safe area. A soft cream wash keeps the text legible where the artwork bleeds into the lower-right corner. */
+.card-collection-artistic.preview-together-card,
+.card-collection-artistic.preview-love-letter-card,
+.card-collection-artistic.preview-doodle-card { background: #f7f1e6; }
+.card-collection-artistic.preview-together-card .preview-content,
+.card-collection-artistic.preview-love-letter-card .preview-content,
+.card-collection-artistic.preview-doodle-card .preview-content { display: flex; flex-direction: column; align-self: flex-start; width: 66%; height: 100%; padding: 7% 0 6% 8%; justify-content: flex-start; color: #4a3b32; background: linear-gradient(100deg, rgba(247, 241, 230, .97) 0%, rgba(247, 241, 230, .88) 48%, rgba(247, 241, 230, 0) 82%); }
+.card-collection-artistic.preview-together-card .preview-tagline,
+.card-collection-artistic.preview-love-letter-card .preview-tagline,
+.card-collection-artistic.preview-doodle-card .preview-tagline { color: #8a6f55; margin-bottom: 10px; }
+.card-collection-artistic.preview-together-card .preview-to,
+.card-collection-artistic.preview-love-letter-card .preview-to,
+.card-collection-artistic.preview-doodle-card .preview-to { margin-bottom: 8px; color: #4a3b32; font-family: Georgia, serif; }
+.card-collection-artistic.preview-together-card .preview-message,
+.card-collection-artistic.preview-love-letter-card .preview-message,
+.card-collection-artistic.preview-doodle-card .preview-message { flex: 0 1 auto; margin-bottom: 10px; text-shadow: none; font-size: clamp(.95rem, 2.5vw, 1.65rem); line-height: 1.22; overflow: hidden; }
+.card-collection-artistic.preview-together-card .preview-message.message-length-long,
+.card-collection-artistic.preview-love-letter-card .preview-message.message-length-long,
+.card-collection-artistic.preview-doodle-card .preview-message.message-length-long { font-size: clamp(.78rem, 1.9vw, 1.25rem); line-height: 1.24; }
+.card-collection-artistic.preview-together-card .preview-message.message-length-xlong,
+.card-collection-artistic.preview-love-letter-card .preview-message.message-length-xlong,
+.card-collection-artistic.preview-doodle-card .preview-message.message-length-xlong { font-size: clamp(.66rem, 1.5vw, 1rem); line-height: 1.26; }
+.card-collection-artistic.preview-together-card .preview-from,
+.card-collection-artistic.preview-love-letter-card .preview-from,
+.card-collection-artistic.preview-doodle-card .preview-from { margin-top: auto; color: #4a3b32; font-family: Georgia, serif; text-shadow: 0 1px 3px rgba(247, 241, 230, .6); }
+.card-collection-artistic.preview-together-card .preview-caption,
+.card-collection-artistic.preview-love-letter-card .preview-caption,
+.card-collection-artistic.preview-doodle-card .preview-caption { color: #8a6f55; }

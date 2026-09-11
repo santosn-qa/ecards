@@ -5,7 +5,15 @@ function escapeXml(value: string) {
   return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character)
 }
 
-function wrapMessage(value: string, maxCharacters = 28) {
+function hexToRgb(hex: string) {
+  const value = hex.replace('#', '')
+  const r = parseInt(value.slice(0, 2), 16)
+  const g = parseInt(value.slice(2, 4), 16)
+  const b = parseInt(value.slice(4, 6), 16)
+  return `${r},${g},${b}`
+}
+
+function wrapMessage(value: string, maxCharacters = 28, maxLines = 5) {
   return value.split(/\r?\n/).flatMap((paragraph) => {
     const words = paragraph.split(/\s+/).filter(Boolean)
     if (!words.length) return ['']
@@ -21,15 +29,21 @@ function wrapMessage(value: string, maxCharacters = 28) {
     }
     if (line) lines.push(line)
     return lines
-  }).slice(0, 5)
+  }).slice(0, maxLines)
 }
 
 export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
   const width = 1080
   const height = 1350
-  const messageLines = wrapMessage(card.message || 'Your message will appear here.', card.message && card.message.length > 100 ? 34 : 28)
-  const messageSize = messageLines.length > 3 ? 56 : 68
-  const message = messageLines.map((line, index) => `<tspan x="140" dy="${index ? messageSize * 1.15 : 0}">${escapeXml(line)}</tspan>`).join('')
+  const isFullBleed = template.artwork.illustrationStyle === 'full-bleed'
+  const maxCharacters = isFullBleed ? 20 : (card.message && card.message.length > 100 ? 34 : 28)
+  const maxLines = isFullBleed ? 9 : 5
+  const messageLines = wrapMessage(card.message || 'Your message will appear here.', maxCharacters, maxLines)
+  const messageSize = isFullBleed
+    ? (messageLines.length > 7 ? 26 : messageLines.length > 5 ? 32 : messageLines.length > 3 ? 38 : 44)
+    : (messageLines.length > 3 ? 56 : 68)
+  const messageX = isFullBleed ? 80 : 140
+  const message = messageLines.map((line, index) => `<tspan x="${messageX}" dy="${index ? messageSize * 1.15 : 0}">${escapeXml(line)}</tspan>`).join('')
   const to = escapeXml(card.to || 'A little note for you')
   const from = escapeXml(card.from ? `— ${card.from}` : 'With a little love')
   const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)
@@ -43,16 +57,37 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
     'preview-together-card': ['#a77587', '#e8c3cc'],
     'preview-doodle-card': ['#c7944f', '#fae0a8'],
   }
-  const [background, circle] = colors[template.previewClass] ?? colors['preview-confetti-card']
+  const [, accent] = colors[template.previewClass] ?? colors['preview-confetti-card']
+  const messageColor = template.artwork.messageColor
+  const supportingColor = template.artwork.supportingTextColor
+  const artworkPath = template.artwork.asset ?? ''
+  const artwork = isFullBleed
+    ? `<image href="${window.location.origin}${import.meta.env.BASE_URL}artwork/${artworkPath}" x="0" y="0" width="1080" height="1350" preserveAspectRatio="xMidYMid slice"/>`
+    : template.collection === 'botanical'
+      ? `<rect width="1080" height="1350" fill="#efe1c9"/><rect x="62" y="62" width="956" height="1226" fill="none" stroke="#8a6750" stroke-width="2" stroke-dasharray="3 8"/><path d="M-30 1270C140 1010 120 650 380 300M20 1290C250 1160 300 820 280 470" fill="none" stroke="#607b55" stroke-width="7"/><g fill="#819b68"><ellipse cx="190" cy="980" rx="38" ry="92" transform="rotate(-48 190 980)"/><ellipse cx="140" cy="760" rx="32" ry="82" transform="rotate(48 140 760)"/><ellipse cx="260" cy="560" rx="29" ry="72" transform="rotate(-52 260 560)"/></g><g fill="#b9675d" stroke="#814a48" stroke-width="2"><circle cx="390" cy="280" r="54"/><circle cx="390" cy="280" r="20"/></g>`
+      : template.collection === 'celebration'
+        ? `<rect width="1080" height="1350" fill="#e77d62"/><path d="M-40 190C160 40 300 280 490 130s280-10 650 40" fill="none" stroke="#f6cf78" stroke-width="28"/><path d="M300-20c18 180 210 180 130 420s160 250 70 490" fill="none" stroke="#9cb9ce" stroke-width="18"/><g fill="#f5ce77"><path d="M120 320l45-14 14 45-45 14z"/><circle cx="960" cy="330" r="15"/><path d="M860 620l56-34 34 56-56 34z"/></g><rect x="554" y="638" width="594" height="684" fill="#f5ead7" stroke="#b77659" stroke-width="5"/>`
+        : `<rect width="1080" height="1350" fill="#202a3d"/><path d="M860 150a210 210 0 1 0-98 380A235 235 0 1 1 860 150z" fill="#e4bd78"/><path d="M-40 1170c260-300 410-10 650-220 210-185 390-100 520 45v400H-40z" fill="#35465a"/><path d="M-40 1260c210-220 390-160 600-35 210 125 340-10 570-170v300H-40z" fill="#172235"/><path d="M-20 1190C190 1080 220 850 350 620" fill="none" stroke="#9bb18c" stroke-width="8"/>`
+  const decorativeGlyphs = isFullBleed ? '' : `
+    <text x="140" y="220" fill="${supportingColor}" font-family="Arial,sans-serif" font-size="54">✦</text>
+    <text x="270" y="380" fill="#e77955" font-family="Arial,sans-serif" font-size="36">✧</text>`
+  const washRgb = hexToRgb(template.artwork.backgroundColor)
+  const textWash = isFullBleed
+    ? `<defs><linearGradient id="text-wash" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="rgb(${washRgb})" stop-opacity=".97"/>
+        <stop offset="48%" stop-color="rgb(${washRgb})" stop-opacity=".88"/>
+        <stop offset="82%" stop-color="rgb(${washRgb})" stop-opacity="0"/>
+      </linearGradient></defs>
+      <rect width="${width}" height="${height}" fill="url(#text-wash)"/>`
+    : ''
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <rect width="1080" height="1350" fill="${background}"/>
-    <circle cx="920" cy="180" r="390" fill="${circle}"/>
-    <text x="140" y="300" fill="white" opacity=".82" font-family="Arial,sans-serif" font-size="24">${escapeXml(template.tagline)}</text>
-    <text x="140" y="390" fill="white" font-family="Arial,sans-serif" font-size="30">${to}</text>
-    <text x="140" y="640" fill="white" font-family="${escapeXml(messageFont.family)}" font-size="${messageSize}">${message}</text>
-    <text x="140" y="1140" fill="white" font-family="Arial,sans-serif" font-size="30">${from}</text>
-    <text x="140" y="220" fill="white" font-family="Arial,sans-serif" font-size="54">✦</text>
-    <text x="270" y="380" fill="#e77955" font-family="Arial,sans-serif" font-size="36">✧</text>
+    ${artwork}
+    ${textWash}
+    ${isFullBleed ? '' : `<rect width="1080" height="1350" fill="${accent}" opacity=".06"/>`}
+    <text x="${messageX}" y="${isFullBleed ? 150 : 300}" fill="${supportingColor}" opacity=".82" font-family="Arial,sans-serif" font-size="${isFullBleed ? 22 : 24}">${escapeXml(template.tagline)}</text>
+    <text x="${messageX}" y="${isFullBleed ? 220 : 390}" fill="${messageColor}" font-family="Arial,sans-serif" font-size="${isFullBleed ? 26 : 30}">${to}</text>
+    <text x="${messageX}" y="${isFullBleed ? 320 : 640}" fill="${messageColor}" font-family="${escapeXml(messageFont.family)}" font-size="${messageSize}">${message}</text>
+    <text x="${messageX}" y="${isFullBleed ? 1220 : 1140}" fill="${isFullBleed ? messageColor : supportingColor}" font-weight="${isFullBleed ? 600 : 400}" font-family="Arial,sans-serif" font-size="${isFullBleed ? 28 : 30}">${from}</text>${decorativeGlyphs}
   </svg>`
   const image = new Image()
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
