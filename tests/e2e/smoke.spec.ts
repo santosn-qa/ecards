@@ -15,3 +15,35 @@ test('creates a card and updates the live preview', async ({ page }) => {
   await expect(preview).toContainText('Thank you for always being there.')
   await expect(preview).toContainText('— Nouri')
 })
+
+test('generates a share URL and opens the shared card view', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Choose Sunshine design' }).click()
+  await page.getByRole('textbox', { name: 'To optional' }).fill('Mom')
+  await page.getByRole('textbox', { name: /Your message/ }).fill('Happy birthday!')
+  await page.getByRole('textbox', { name: 'From optional' }).fill('Nouri')
+
+  const shareLink = page.getByRole('textbox', { name: 'Share link' })
+  const url = await shareLink.inputValue()
+  expect(url).toContain('#/card/')
+
+  await page.goto(url)
+  await expect(page.getByRole('heading', { name: 'Mom, this is for you.' })).toBeVisible()
+  await expect(page.getByRole('article')).toContainText('Happy birthday!')
+  await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
+})
+
+test('handles malformed shared URLs without crashing', async ({ page }) => {
+  await page.goto('/#/card/not-a-valid-card')
+  await expect(page.getByRole('heading', { name: 'We couldn’t open this card.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
+})
+
+test('downloads a PNG from the editor', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/little-hello-birthday-confetti-01\.png/)
+})

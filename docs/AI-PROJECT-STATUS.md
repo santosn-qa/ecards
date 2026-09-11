@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 1: responsive card creation shell.
+Phase 2: shareable cards and local export.
 
 ## Current functionality
 
@@ -14,11 +14,13 @@ Phase 1: responsive card creation shell.
 - PWA/Workbox build configuration
 - GitHub Pages deployment workflow
 - Playwright smoke-test configuration
+- Versioned, validated card URLs in the hash
+- Shared-card presentation view
+- Clipboard/Web Share actions
+- Native 1080px PNG export
 
 ## Known issues and deferred work
 
-- Card URL serialization and shared-card viewer are not implemented.
-- PNG export and Web Share API integration are not implemented.
 - Unit-test tooling is not configured; the current automated suite is browser
   smoke coverage.
 - Placeholder artwork needs human visual approval before production use.
@@ -26,6 +28,5 @@ Phase 1: responsive card creation shell.
 ## Test status
 
 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and
-`npm run test:e2e` before release. The Phase 1 implementation has previously
-passed lint, typecheck, and build; this workflow change adds the Playwright
-smoke suite for ongoing validation.
+`npm run test:e2e` before release. Phase 2 smoke coverage verifies editor preview updates, generated share URLs,
+shared-card reconstruction, and malformed URL handling.

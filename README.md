@@ -18,8 +18,8 @@ All card content is created and rendered locally in the browser.
 - **Templates:** artwork stays in local application assets and is separate from
   card content. New artwork must receive a new permanent template ID.
 - **Offline:** `vite-plugin-pwa` and Workbox precache the application shell and
-  bundled template assets. Future phases will add offline URL decoding, PNG
-  export, and share flows.
+  bundled template assets. Card URL decoding and native PNG export run locally
+  in the browser, including after the first visit has been cached.
 
 ### Dependency evaluation
 
@@ -40,9 +40,9 @@ units, and Playwright for browser journeys. MCP is never shipped in the app.
 ## Phase 1
 
 Phase 1 includes the responsive shell, occasion selector, eight local
-placeholder templates, constrained editor, and a live preview. Sharing,
-versioned hash serialization, PNG export, and the presentation-only shared-card
-viewer are intentionally deferred until the Phase 1 UX is validated.
+placeholder templates, constrained editor, and a live preview. Phase 2 adds
+versioned hash serialization, validated shared-card links, a presentation-only
+shared-card viewer, Clipboard/Web Share actions, and native PNG export.
 
 ## Local development
 

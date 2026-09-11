@@ -65,6 +65,21 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .preview-together-card { background: #a77587; } .preview-together-card .preview-circle { background: #e8c3cc; }
 .preview-doodle-card { background: #c7944f; } .preview-doodle-card .preview-circle { background: #fae0a8; }
 .preview-footnote { margin: 20px 0 0; text-align: center; color: #9b928e; font-size: .75rem; line-height: 1.5; }
+.share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.primary-action, .secondary-action { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; border-radius: 100px; padding: 0 20px; text-decoration: none; font-size: .82rem; font-weight: 600; }
+.primary-action { border: 1px solid #d26f4f; background: #d26f4f; color: #fff; }
+.primary-action:hover { background: #b95d40; }
+.secondary-action { border: 1px solid #ded6d1; background: #fff; color: #665d59; }
+.secondary-action:hover { border-color: #d26f4f; color: #b5583d; }
+.secondary-action:disabled { cursor: wait; opacity: .6; }
+.action-status { min-height: 18px; margin: 12px 0 0; color: #8f857f; font-size: .72rem; overflow-wrap: anywhere; }
+.share-link-field { display: grid; gap: 7px; margin-top: 18px; color: #8f857f; font-size: .72rem; }
+.share-link-field input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #e5ddd8; border-radius: 7px; background: #faf8f6; color: #716965; font-size: .72rem; }
+.shared-main { max-width: 600px; margin: 0 auto; padding: 74px 0 100px; text-align: center; }
+.shared-title { margin-bottom: 34px; font-size: clamp(2.3rem, 6vw, 4.2rem); }
+.shared-card-wrap { max-width: 440px; margin: 0 auto; }
+.shared-main .action-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px; }
+.error-state > p:not(.eyebrow) { max-width: 380px; margin: 0 auto 28px; color: #716965; line-height: 1.6; }
 .site-footer { display: flex; justify-content: space-between; padding: 22px 0 32px; border-top: 1px solid #e8e1dd; color: #aaa09b; font-size: .72rem; }
 
 @media (max-width: 760px) {
@@ -78,6 +93,8 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
   .preview-column { position: static; grid-row: 1; }
   .card-preview { max-width: 440px; margin: 0 auto; }
   .preview-footnote { margin-bottom: 12px; }
+  .share-actions { display: grid; grid-template-columns: 1fr; }
+  .shared-main { padding: 54px 0 70px; }
   .site-footer { flex-direction: column; gap: 8px; }
 }
 @media (max-width: 420px) {
