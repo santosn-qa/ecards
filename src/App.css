@@ -127,6 +127,8 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .shared-main .preview-footnote { text-align: left; }
 .error-state > p:not(.eyebrow) { max-width: 380px; margin: 0 0 28px; color: #716965; line-height: 1.6; }
 .site-footer { display: flex; justify-content: space-between; padding: 22px 0 32px; border-top: 1px solid #e8e1dd; color: #aaa09b; font-size: .72rem; }
+.site-footer a { color: #8f857f; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.site-footer a:hover { color: #d26f4f; }
 
 @media (max-width: 760px) {
   .app-shell { padding: 0 20px; }

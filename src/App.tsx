@@ -51,6 +51,10 @@ function App() {
           </div>
           <p className="preview-footnote">This card was created privately in a browser.<br />No account or storage needed.</p>
         </main>
+        <footer className="site-footer">
+          <span>Made for meaningful moments.</span>
+          <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+        </footer>
       </div>
     )
   }
@@ -76,6 +80,10 @@ function App() {
           <p>It may be incomplete, outdated, or missing its design. You can still make a new card right here.</p>
           <a className="primary-action" href="#/">Create Your Own Card</a>
         </main>
+        <footer className="site-footer">
+          <span>Made for meaningful moments.</span>
+          <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+        </footer>
       </div>
     )
   }
@@ -224,7 +232,10 @@ function App() {
           </aside>
         </section>
       </main>
-      <footer className="site-footer"><span>Made for meaningful moments.</span><span>Works offline after your first visit.</span></footer>
+      <footer className="site-footer">
+        <span>Made for meaningful moments. Works offline after your first visit.</span>
+        <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+      </footer>
     </div>
   )
 }

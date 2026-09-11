@@ -85,3 +85,7 @@ are permanent public identifiers: never reuse an existing ID for a different
 design, and keep retired templates readable whenever practical. Keep artwork
 and card content separate so the renderer can evolve without changing the
 template data contract.
+
+## Credit
+
+Created by [Nourilee Santos](https://www.linkedin.com/in/nourileesantos/).
