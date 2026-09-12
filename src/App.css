@@ -137,7 +137,7 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
   .privacy-note span { font-size: 1.25rem; margin: 0; }
   .hero-section { padding: 62px 0 70px; }
   .hero-sparkles { right: 0; bottom: 50px; }
-  .workspace { grid-template-columns: 1fr; gap: 44px; }
+  .workspace { grid-template-columns: minmax(0, 1fr); gap: 44px; }
   .preview-column { position: static; grid-row: 1; }
   .card-preview { max-width: 440px; margin: 0 auto; }
   .preview-footnote { margin-bottom: 12px; }

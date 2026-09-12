@@ -33,6 +33,26 @@ const messageFontFamilies = [
   'Space Grotesk',
 ]
 
+test('has no horizontal overflow on a narrow Android viewport', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 360, height: 800 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  })
+  const page = await context.newPage()
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Make someone’s day.' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Love' }).click()
+  await page.getByRole('button', { name: 'Choose Love letter design' }).click()
+  await page.getByRole('textbox', { name: /Your message/ }).fill('Every day with you feels like a page from a favorite story.')
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  await context.close()
+  expect(overflow, `page overflowed horizontally by ${overflow}px at a 360px viewport width`).toBeLessThanOrEqual(0)
+})
+
 test('creates a card and updates the live preview', async ({ page }) => {
   await page.goto('/')
 
