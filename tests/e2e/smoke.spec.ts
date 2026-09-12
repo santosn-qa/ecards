@@ -155,6 +155,17 @@ test('applies an expressive message font and preserves it in shared cards', asyn
   await expect(page.locator('.preview-message')).toHaveClass(/message-font-dancing-script/)
 })
 
+test('design thumbnail placeholder matches the artwork tone instead of flashing a mismatched color while the image loads', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Congratulations' }).click()
+
+  const thumbnail = page.locator('.template-art').first()
+  const backgroundColor = await thumbnail.evaluate((element) => getComputedStyle(element).backgroundColor)
+
+  // congratulations-bright-01's artwork.backgroundColor (#FAF1E6, a warm cream matching the illustration).
+  expect(backgroundColor, 'thumbnail placeholder should match the cream-toned artwork, not a leftover mismatched color').toBe('rgb(250, 241, 230)')
+})
+
 test('registers every expressive message font as an actual @font-face, not just a name in CSS', async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => document.fonts.ready)

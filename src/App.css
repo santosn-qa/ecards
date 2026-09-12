@@ -36,9 +36,6 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .gallery-flower { position: absolute; left: 12%; bottom: 12%; color: #fff; font-size: 2rem; transform: rotate(-14deg); }
 .gallery-spark { position: absolute; top: 19%; left: 17%; color: #fff; font-size: 1rem; }
 .gallery-line { position: absolute; right: 19%; bottom: 18%; color: #fff; font-size: 2.4rem; transform: rotate(-18deg); }
-.art-confetti { background: #c8d8c1; } .art-sunshine { background: #fae4a6; } .art-party { background: #b7cbe0; }
-.art-bloom { background: #f0c8c1; } .art-sincere { background: #ded4c5; } .art-bright { background: #b7d8cf; }
-.art-together { background: #d9bfc9; } .art-doodle { background: #f5d89a; }
 .card-style-playful .gallery-orbit { border-style: dashed; transform: rotate(20deg); }
 .card-style-sunny .gallery-orbit { border-color: #e77955aa; border-width: 5px; }
 .card-style-editorial .gallery-line { color: #6a5b4a; }

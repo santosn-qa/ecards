@@ -205,7 +205,7 @@ function App() {
             <div className="template-grid">
               {visibleTemplates.map((template) => (
                 <button className={`template-button ${selectedTemplate.id === template.id ? 'is-selected' : ''}`} key={template.id} type="button" onClick={() => selectTemplate(template.id)} aria-label={`Choose ${template.name} design`} aria-pressed={selectedTemplate.id === template.id}>
-                  <div className={`template-art ${template.artClass} card-style-${template.style}`} aria-hidden="true">
+                  <div className={`template-art card-style-${template.style}`} style={{ backgroundColor: template.artwork.backgroundColor }} aria-hidden="true">
                     <CardArtwork template={template} />
                   </div>
                   <span className="template-name">{template.name}</span>
