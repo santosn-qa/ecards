@@ -260,6 +260,29 @@ test('downloaded PNG matches the live preview typography for the card text', asy
   expect(Math.abs(taglineBounds.width - expectedTaglineBounds.width), `downloaded tagline width ${taglineBounds.width}px should match the live uppercase tracked width ${expectedTaglineBounds.width}px`).toBeLessThanOrEqual(28)
 })
 
+test('live preview does not auto-hyphenate the placeholder message at narrow card widths', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 985, height: 710 } })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  const previewMessage = page.locator('.preview-message')
+  await expect(previewMessage).toHaveText('Your message will appear here.')
+  await expect(previewMessage).toHaveCSS('hyphens', 'none')
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  const download = await downloadPromise
+  const messageBounds = await getDownloadedTextBounds(page, (await download.path())!, { x: 70, y: 260, width: 520, height: 120 })
+  const expectedMessageBounds = await getCanvasTextBounds(page, {
+    text: 'Your message will',
+    font: '400 44px "Caveat", "Segoe Print", cursive',
+    baselineY: 80,
+  })
+
+  expect(messageBounds.width, 'downloaded placeholder should wrap at word boundaries instead of drawing "ap-pear"').toBeGreaterThanOrEqual(expectedMessageBounds.width - 24)
+  await context.close()
+})
+
 test('applies an expressive message font and preserves it in shared cards', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('textbox', { name: /Your message/ }).fill('A beautiful day for you.')

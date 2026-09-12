@@ -79,7 +79,7 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .preview-tagline { margin: 0 0 18px; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; opacity: .78; }
 .preview-to { margin: 0 0 16px; font-size: .8rem; opacity: .9; }
 .preview-to, .preview-from, .preview-tagline { color: var(--supporting-text-color, currentColor); }
-.preview-message { max-width: 95%; margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(1.45rem, 3vw, 2.2rem); line-height: 1.08; overflow-wrap: anywhere; word-break: normal; hyphens: auto; }
+.preview-message { max-width: 95%; margin: 0 0 20px; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(1.45rem, 3vw, 2.2rem); line-height: 1.08; overflow-wrap: anywhere; word-break: normal; hyphens: none; }
 .preview-message.message-length-long { font-size: clamp(1.15rem, 2.4vw, 1.7rem); line-height: 1.16; }
 .preview-message.message-length-xlong { font-size: clamp(.95rem, 1.9vw, 1.35rem); line-height: 1.2; }
 .preview-from { margin: 0; font-size: .95rem; font-weight: 600; letter-spacing: .01em; opacity: .95; }
