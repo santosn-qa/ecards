@@ -4,6 +4,9 @@
 .site-header { display: flex; justify-content: space-between; align-items: center; padding: 28px 0; border-bottom: 1px solid #e8e1dd; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: #27232d; text-decoration: none; font-weight: 600; letter-spacing: -.02em; }
 .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; background: #e77955; font-size: 14px; }
+.site-nav { display: flex; align-items: center; gap: 20px; }
+.site-nav a { color: #665d59; font-size: .82rem; font-weight: 600; text-decoration: none; }
+.site-nav a:hover { color: #d26f4f; }
 .privacy-note { margin: 0; color: #857d79; font-size: .78rem; }
 .privacy-note span { color: #e77955; margin-right: 6px; font-size: 1.1rem; }
 .hero-section { position: relative; padding: clamp(62px, 9vw, 116px) 0 76px; max-width: 630px; }
@@ -123,13 +126,31 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .shared-main .action-row { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px; margin-top: 28px; }
 .shared-main .preview-footnote { text-align: left; }
 .error-state > p:not(.eyebrow) { max-width: 380px; margin: 0 0 28px; color: #716965; line-height: 1.6; }
+.guide-main { padding-bottom: 90px; }
+.guide-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); gap: clamp(42px, 8vw, 100px); align-items: center; padding: clamp(54px, 8vw, 94px) 0 72px; border-bottom: 1px solid #e8e1dd; }
+.guide-copy .primary-action { margin-top: 28px; }
+.guide-hero-note { justify-self: end; padding: 28px; border: 1px solid #e8e1dd; border-radius: 8px; background: #fff8f4; }
+.guide-hero-note span { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 22px; border-radius: 50%; background: #d26f4f; color: #fff; }
+.guide-hero-note p { margin: 0; color: #665d59; font-size: .95rem; line-height: 1.65; }
+.guide-section { padding: 48px 0; border-bottom: 1px solid #e8e1dd; }
+.guide-demo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.guide-demo { overflow: hidden; border: 1px solid #e8e1dd; border-radius: 8px; background: #fff; }
+.guide-demo-media { background: #191512; }
+.guide-demo-media img { display: block; width: 100%; height: auto; }
+.guide-demo-copy { padding: 22px 24px 24px; }
+.guide-demo-kicker { margin: 0 0 8px; color: #d26f4f; font-size: .68rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.guide-demo h3, .guide-notes h3 { margin: 0 0 10px; color: #3c3532; font-size: 1rem; }
+.guide-demo p:not(.guide-demo-kicker), .guide-notes p { margin: 0; color: #716965; font-size: .9rem; line-height: 1.65; }
+.guide-two-column { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: clamp(32px, 6vw, 84px); align-items: start; }
+.guide-notes { display: grid; gap: 24px; }
 .site-footer { display: flex; justify-content: space-between; padding: 22px 0 32px; border-top: 1px solid #e8e1dd; color: #aaa09b; font-size: .72rem; }
 .site-footer a { color: #8f857f; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .site-footer a:hover { color: #d26f4f; }
 
 @media (max-width: 760px) {
   .app-shell { padding: 0 20px; }
-  .site-header { padding: 20px 0; }
+  .site-header { align-items: flex-start; gap: 18px; padding: 20px 0; }
+  .site-nav { flex-direction: column; align-items: flex-end; gap: 7px; }
   .privacy-note { font-size: 0; }
   .privacy-note span { font-size: 1.25rem; margin: 0; }
   .hero-section { padding: 62px 0 70px; }
@@ -142,6 +163,9 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
   .font-picker-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
   .font-option { flex-basis: 134px; }
   .shared-main { padding: 54px 0 70px; }
+  .guide-hero, .guide-two-column, .guide-demo-grid { grid-template-columns: minmax(0, 1fr); }
+  .guide-hero-note { justify-self: stretch; }
+  .guide-section { padding: 38px 0; }
   .site-footer { flex-direction: column; gap: 8px; }
 }
 @media (max-width: 420px) {

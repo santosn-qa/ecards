@@ -13,8 +13,105 @@ import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
 
+function SiteHeader() {
+  return (
+    <header className="site-header">
+      <a className="brand" href="#/" aria-label="Little Hello home">
+        <span className="brand-mark" aria-hidden="true">✦</span><span>Little Hello</span>
+      </a>
+      <nav className="site-nav" aria-label="Primary navigation">
+        <a href="#/guide">How to guide</a>
+        <p className="privacy-note"><span aria-hidden="true">⌁</span> Made privately on your device</p>
+      </nav>
+    </header>
+  )
+}
+
+function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <span>Made for meaningful moments. Works offline after your first visit.</span>
+      <span>
+        Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
+        {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
+      </span>
+    </footer>
+  )
+}
+
+function GuidePage() {
+  const assetBase = import.meta.env.BASE_URL
+
+  return (
+    <div className="app-shell guide-shell">
+      <SiteHeader />
+      <main className="guide-main">
+        <section className="guide-hero" aria-labelledby="guide-title">
+          <div className="guide-copy">
+            <p className="eyebrow">How to guide</p>
+            <h1 id="guide-title">Send a Little Hello in minutes.</h1>
+            <p className="hero-text">A quick visual guide for making a card and for opening one someone sends you.</p>
+            <a className="primary-action" href="#/">Start Making a Card</a>
+          </div>
+          <div className="guide-hero-note" aria-label="Little Hello privacy note">
+            <span>✦</span>
+            <p>No account needed. Cards are created in your browser and shared with a private link or downloaded image.</p>
+          </div>
+        </section>
+
+        <section className="guide-section" aria-labelledby="guide-videos-title">
+          <div className="section-heading">
+            <div><p className="step-label">01 <span>of 02</span></p><h2 id="guide-videos-title">Follow the flow</h2></div>
+          </div>
+          <div className="guide-demo-grid">
+            <article className="guide-demo">
+              <div className="guide-demo-media">
+                <img src={`${assetBase}guide/little-hello-mobile-creator-guide.gif`} alt="Animated guide showing a creator choosing an occasion, picking a design, writing a message, and sharing a Little Hello card." />
+              </div>
+              <div className="guide-demo-copy">
+                <p className="guide-demo-kicker">For creators</p>
+                <h3>Create and share</h3>
+                <p>Pick an occasion, choose a design, write your message, then share the card link or download a PNG.</p>
+              </div>
+            </article>
+            <article className="guide-demo">
+              <div className="guide-demo-media">
+                <img src={`${assetBase}guide/little-hello-mobile-recipient-guide.gif`} alt="Animated guide showing a recipient opening a Little Hello card link, viewing the card, and seeing download and create-your-own-card actions." />
+              </div>
+              <div className="guide-demo-copy">
+                <p className="guide-demo-kicker">For recipients</p>
+                <h3>Open and keep</h3>
+                <p>Open the link, read the card, download it if you want a keepsake, or make one to send back.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="guide-section guide-two-column" aria-labelledby="guide-share-title">
+          <div>
+            <p className="step-label">02 <span>of 02</span></p>
+            <h2 id="guide-share-title">Tips before sending</h2>
+          </div>
+          <div className="guide-notes">
+            <div>
+              <h3>Preview the link</h3>
+              <p>After copying the share link, open it in a new tab if you want one last check before sending.</p>
+            </div>
+            <div>
+              <h3>Save a copy</h3>
+              <p>Download Card creates an image you can attach to a message, email, or print later.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+    </div>
+  )
+}
+
 function App() {
   const [sharedResult, setSharedResult] = useState<DecodeResult | null | undefined>(() => decodeCardHash(window.location.hash))
+  const [hashPath, setHashPath] = useState(() => window.location.hash)
   const [occasion, setOccasion] = useState<Occasion>('Birthday')
   const [selectedTemplateId, setSelectedTemplateId] = useState(cardTemplates[0].id)
   const [draft, setDraft] = useState<CardDraft>(emptyDraft)
@@ -30,21 +127,23 @@ function App() {
     cardTemplates.find((template) => template.id === selectedTemplateId) ?? visibleTemplates[0]
 
   useEffect(() => {
-    const handleHashChange = () => setSharedResult(decodeCardHash(window.location.hash))
+    const handleHashChange = () => {
+      setHashPath(window.location.hash)
+      setSharedResult(decodeCardHash(window.location.hash))
+    }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  if (hashPath === '#/guide') {
+    return <GuidePage />
+  }
 
   if (sharedResult?.ok) {
     const template = cardTemplates.find(({ id }) => id === sharedResult.card.template) ?? cardTemplates[0]
     return (
       <div className="app-shell shared-shell">
-        <header className="site-header">
-          <a className="brand" href="#/" aria-label="Little Hello home">
-            <span className="brand-mark" aria-hidden="true">✦</span><span>Little Hello</span>
-          </a>
-          <p className="privacy-note"><span aria-hidden="true">⌁</span> Made privately on your device</p>
-        </header>
+        <SiteHeader />
         <main className="shared-main">
           <p className="eyebrow">A little hello for you</p>
           <h1 className="shared-title">{sharedResult.card.to ? `${sharedResult.card.to}, this is for you.` : 'Someone made this for you.'}</h1>
@@ -57,13 +156,7 @@ function App() {
           </div>
           <p className="preview-footnote">This card was created privately in a browser.<br />No account or storage needed.</p>
         </main>
-        <footer className="site-footer">
-          <span>Made for meaningful moments.</span>
-          <span>
-            Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
-            {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
-          </span>
-        </footer>
+        <SiteFooter />
       </div>
     )
   }
@@ -78,24 +171,14 @@ function App() {
   if (sharedResult && !sharedResult.ok) {
     return (
       <div className="app-shell shared-shell">
-        <header className="site-header">
-          <a className="brand" href="#/" aria-label="Little Hello home">
-            <span className="brand-mark" aria-hidden="true">✦</span><span>Little Hello</span>
-          </a>
-        </header>
+        <SiteHeader />
         <main className="shared-main error-state">
           <p className="eyebrow">This card link needs a little help</p>
           <h1 className="shared-title">We couldn’t open this card.</h1>
           <p>It may be incomplete, outdated, or missing its design. You can still make a new card right here.</p>
           <a className="primary-action" href="#/">Create Your Own Card</a>
         </main>
-        <footer className="site-footer">
-          <span>Made for meaningful moments.</span>
-          <span>
-            Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
-            {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
-          </span>
-        </footer>
+        <SiteFooter />
       </div>
     )
   }
@@ -170,12 +253,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <a className="brand" href="#/" aria-label="Little Hello home">
-          <span className="brand-mark" aria-hidden="true">✦</span><span>Little Hello</span>
-        </a>
-        <p className="privacy-note"><span aria-hidden="true">⌁</span> Made privately on your device</p>
-      </header>
+      <SiteHeader />
       <main>
         <section className="hero-section" aria-labelledby="welcome-title">
           <div className="hero-copy">
@@ -260,13 +338,7 @@ function App() {
           </aside>
         </section>
       </main>
-      <footer className="site-footer">
-        <span>Made for meaningful moments. Works offline after your first visit.</span>
-        <span>
-          Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
-          {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
-        </span>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

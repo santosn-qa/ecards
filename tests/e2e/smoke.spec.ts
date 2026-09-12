@@ -69,6 +69,17 @@ test('creates a card and updates the live preview', async ({ page }) => {
   await expect(preview).toContainText('— Nouri')
 })
 
+test('links from the landing page to the how-to guide', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'How to guide' }).click()
+  await expect(page).toHaveURL(/#\/guide$/)
+  await expect(page.getByRole('heading', { name: 'Send a Little Hello in minutes.' })).toBeVisible()
+
+  await page.getByRole('link', { name: 'Start Making a Card' }).click()
+  await expect(page.getByRole('heading', { name: 'Make someone’s day.' })).toBeVisible()
+})
+
 test('generates a share URL and opens the shared card view', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Choose Sunshine design' }).click()
