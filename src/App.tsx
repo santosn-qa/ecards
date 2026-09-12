@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { decodeCardHash, createCardUrl, encodeCard, type DecodeResult } from './card/codec'
 import { CardRenderer } from './components/CardRenderer'
 import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
 import { cardTemplates, occasions, type CardDraft, type Occasion } from './data/templates'
 import { getMessageFont, messageFonts, type MessageFontId } from './data/typography'
+import { SUPPORT_CONFIG } from './config/support'
+import { readDismissedAt, recordDismissal, shouldShowSupportPrompt } from './support/supportPrompt'
+import { SupportPanel } from './components/SupportPanel'
+import { SupportFooterLink } from './components/SupportFooterLink'
 import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
@@ -16,6 +20,8 @@ function App() {
   const [draft, setDraft] = useState<CardDraft>(emptyDraft)
   const [notice, setNotice] = useState('')
   const [isExporting, setIsExporting] = useState(false)
+  const [showSupportPanel, setShowSupportPanel] = useState(false)
+  const hasShownSupportPanelRef = useRef(false)
   const visibleTemplates = useMemo(
     () => cardTemplates.filter((template) => template.occasion === occasion),
     [occasion],
@@ -53,7 +59,10 @@ function App() {
         </main>
         <footer className="site-footer">
           <span>Made for meaningful moments.</span>
-          <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+          <span>
+            Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
+            {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
+          </span>
         </footer>
       </div>
     )
@@ -82,7 +91,10 @@ function App() {
         </main>
         <footer className="site-footer">
           <span>Made for meaningful moments.</span>
-          <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+          <span>
+            Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
+            {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
+          </span>
         </footer>
       </div>
     )
@@ -102,12 +114,25 @@ function App() {
     setNotice('')
   }
 
+  function maybeShowSupportPanel() {
+    if (hasShownSupportPanelRef.current) return
+    if (!shouldShowSupportPrompt(Date.now(), readDismissedAt(), SUPPORT_CONFIG.enabled)) return
+    hasShownSupportPanelRef.current = true
+    setShowSupportPanel(true)
+  }
+
+  function dismissSupportPanel() {
+    recordDismissal(Date.now())
+    setShowSupportPanel(false)
+  }
+
   async function copyLink() {
     const url = createCardUrl(draft, selectedTemplate.id)
     try {
       if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
       await navigator.clipboard.writeText(url)
       setNotice('Link copied!')
+      maybeShowSupportPanel()
     } catch {
       setNotice('Copy failed. You can select the link below.')
     }
@@ -119,6 +144,7 @@ function App() {
       try {
         await navigator.share({ title: 'A Little Hello card', text: 'Someone made a card for you.', url })
         setNotice('Ready to share!')
+        maybeShowSupportPanel()
       } catch {
         setNotice('Sharing was cancelled.')
       }
@@ -132,6 +158,7 @@ function App() {
     try {
       await downloadCardPng(draft, selectedTemplate)
       setNotice('Card downloaded!')
+      maybeShowSupportPanel()
     } catch {
       setNotice('The card could not be downloaded. Please try again.')
     } finally {
@@ -223,6 +250,7 @@ function App() {
                 <input readOnly aria-label="Share link" value={currentUrl} onFocus={(event) => event.currentTarget.select()} />
               </label>
               <p className="action-status" role="status" aria-live="polite">{notice || `Your share link is ready: ${currentUrl}`}</p>
+              {showSupportPanel && <SupportPanel onDismiss={dismissSupportPanel} />}
             </div>
           </div>
           <aside className="preview-column" aria-label="Live card preview">
@@ -234,7 +262,10 @@ function App() {
       </main>
       <footer className="site-footer">
         <span>Made for meaningful moments. Works offline after your first visit.</span>
-        <span>Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a></span>
+        <span>
+          Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
+          {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
+        </span>
       </footer>
     </div>
   )

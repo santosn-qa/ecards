@@ -319,3 +319,9 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .card-collection-artistic.preview-together-card .preview-caption,
 .card-collection-artistic.preview-love-letter-card .preview-caption,
 .card-collection-artistic.preview-doodle-card .preview-caption { color: #8a6f55; }
+
+.support-panel { margin-top: 18px; padding: 20px 22px; border: 1px solid #e8e1dd; border-radius: 14px; background: #fff8f4; }
+.support-panel-heading { margin: 0 0 8px; color: #4d4643; font-size: .95rem; font-weight: 600; }
+.support-panel-body { margin: 0 0 10px; color: #716965; font-size: .82rem; line-height: 1.55; }
+.support-panel-privacy { margin: 0 0 16px; color: #9b928e; font-size: .72rem; line-height: 1.5; }
+.support-panel-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
