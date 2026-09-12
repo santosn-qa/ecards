@@ -1,5 +1,28 @@
 import type { CardDraft, CardTemplate } from '../data/templates'
-import { getMessageFont } from '../data/typography'
+import { getMessageFont, type MessageFontId } from '../data/typography'
+import caveatFontUrl from '@fontsource/caveat/files/caveat-latin-400-normal.woff2?url'
+import cormorantFontUrl from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2?url'
+import dancingScriptFontUrl from '@fontsource/dancing-script/files/dancing-script-latin-400-normal.woff2?url'
+import dmSerifFontUrl from '@fontsource/dm-serif-display/files/dm-serif-display-latin-400-normal.woff2?url'
+import libreBaskervilleFontUrl from '@fontsource/libre-baskerville/files/libre-baskerville-latin-400-normal.woff2?url'
+import quicksandFontUrl from '@fontsource/quicksand/files/quicksand-latin-400-normal.woff2?url'
+import satisfyFontUrl from '@fontsource/satisfy/files/satisfy-latin-400-normal.woff2?url'
+import spaceGroteskFontUrl from '@fontsource/space-grotesk/files/space-grotesk-latin-400-normal.woff2?url'
+
+const supportingFontFamily = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+
+const exportFontSources: Record<MessageFontId, { family: string; url: string }> = {
+  caveat: { family: 'Caveat', url: caveatFontUrl },
+  'dancing-script': { family: 'Dancing Script', url: dancingScriptFontUrl },
+  cormorant: { family: 'Cormorant Garamond', url: cormorantFontUrl },
+  'dm-serif': { family: 'DM Serif Display', url: dmSerifFontUrl },
+  'libre-baskerville': { family: 'Libre Baskerville', url: libreBaskervilleFontUrl },
+  quicksand: { family: 'Quicksand', url: quicksandFontUrl },
+  satisfy: { family: 'Satisfy', url: satisfyFontUrl },
+  'space-grotesk': { family: 'Space Grotesk', url: spaceGroteskFontUrl },
+}
+
+const fontDataUrlCache = new Map<MessageFontId, Promise<string>>()
 
 function escapeXml(value: string) {
   return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character)
@@ -17,6 +40,36 @@ async function loadArtworkBitmap(url: string): Promise<ImageBitmap> {
   const response = await fetch(url)
   if (!response.ok) throw new Error('Unable to fetch artwork image')
   return createImageBitmap(await response.blob())
+}
+
+async function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Unable to read font file'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function getFontDataUrl(fontId: MessageFontId) {
+  const existing = fontDataUrlCache.get(fontId)
+  if (existing) return existing
+
+  const fontDataUrl = fetch(exportFontSources[fontId].url)
+    .then((response) => {
+      if (!response.ok) throw new Error('Unable to fetch message font')
+      return response.blob()
+    })
+    .then(blobToDataUrl)
+
+  fontDataUrlCache.set(fontId, fontDataUrl)
+  return fontDataUrl
+}
+
+async function createFontFaceCss(fontId: MessageFontId) {
+  const fontSource = exportFontSources[fontId]
+  const fontDataUrl = await getFontDataUrl(fontId)
+  return `@font-face{font-family:"${fontSource.family}";font-style:normal;font-weight:400;src:url("${fontDataUrl}") format("woff2");}`
 }
 
 function drawArtworkCover(context: CanvasRenderingContext2D, bitmap: ImageBitmap, width: number, height: number) {
@@ -60,6 +113,7 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
   const to = escapeXml(card.to || 'A little note for you')
   const from = escapeXml(card.from ? `— ${card.from}` : 'With a little love')
   const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)
+  const messageFontCss = await createFontFaceCss(messageFont.id)
   const colors: Record<string, [string, string]> = {
     'preview-confetti-card': ['#f2c9c0', '#f8d18c'],
     'preview-sunshine-card': ['#d7ad54', '#f8e0a1'],
@@ -86,21 +140,21 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
     <text x="270" y="380" fill="#e77955" font-family="Arial,sans-serif" font-size="36">✧</text>`
   const washRgb = hexToRgb(template.artwork.backgroundColor)
   const textWash = isFullBleed
-    ? `<defs><linearGradient id="text-wash" x1="0" y1="0" x2="1" y2="0">
+    ? `<defs><style>${messageFontCss}</style><linearGradient id="text-wash" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" stop-color="rgb(${washRgb})" stop-opacity=".97"/>
         <stop offset="48%" stop-color="rgb(${washRgb})" stop-opacity=".88"/>
         <stop offset="82%" stop-color="rgb(${washRgb})" stop-opacity="0"/>
       </linearGradient></defs>
       <rect width="${width}" height="${height}" fill="url(#text-wash)"/>`
-    : ''
+    : `<defs><style>${messageFontCss}</style></defs>`
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     ${artwork}
     ${textWash}
     ${isFullBleed ? '' : `<rect width="1080" height="1350" fill="${accent}" opacity=".06"/>`}
-    <text x="${messageX}" y="${isFullBleed ? 150 : 300}" fill="${supportingColor}" opacity=".82" font-family="Arial,sans-serif" font-size="${isFullBleed ? 22 : 24}">${escapeXml(template.tagline)}</text>
-    <text x="${messageX}" y="${isFullBleed ? 220 : 390}" fill="${messageColor}" font-family="Arial,sans-serif" font-size="${isFullBleed ? 26 : 30}">${to}</text>
+    <text x="${messageX}" y="${isFullBleed ? 150 : 300}" fill="${supportingColor}" opacity=".82" font-family="${escapeXml(supportingFontFamily)}" font-size="${isFullBleed ? 22 : 24}">${escapeXml(template.tagline)}</text>
+    <text x="${messageX}" y="${isFullBleed ? 220 : 390}" fill="${messageColor}" font-family="${escapeXml(supportingFontFamily)}" font-size="${isFullBleed ? 26 : 30}">${to}</text>
     <text x="${messageX}" y="${isFullBleed ? 320 : 640}" fill="${messageColor}" font-family="${escapeXml(messageFont.family)}" font-size="${messageSize}">${message}</text>
-    <text x="${messageX}" y="${isFullBleed ? 1220 : 1140}" fill="${isFullBleed ? messageColor : supportingColor}" font-weight="${isFullBleed ? 600 : 400}" font-family="Arial,sans-serif" font-size="${isFullBleed ? 28 : 30}">${from}</text>${decorativeGlyphs}
+    <text x="${messageX}" y="${isFullBleed ? 1220 : 1140}" fill="${isFullBleed ? messageColor : supportingColor}" font-weight="${isFullBleed ? 600 : 400}" font-family="${escapeXml(supportingFontFamily)}" font-size="${isFullBleed ? 28 : 30}">${from}</text>${decorativeGlyphs}
   </svg>`
   const artworkBitmap = isFullBleed
     ? await loadArtworkBitmap(`${window.location.origin}${import.meta.env.BASE_URL}artwork/${artworkPath}`)
