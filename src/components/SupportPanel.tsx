@@ -12,7 +12,7 @@ export function SupportPanel({ onDismiss }: SupportPanelProps) {
       </p>
       <p className="support-panel-body">
         Little Hello is free, with no ads or paywalls. If this helped you make
-        someone's day a little brighter, you can help keep Little Hello going.
+        someone’s day a little brighter, you can help keep Little Hello going.
       </p>
       <p className="support-panel-privacy">
         We never see your card, your message, or any personal details — this
