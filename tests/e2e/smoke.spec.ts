@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
 
+const messageFontFamilies = [
+  'Caveat',
+  'Dancing Script',
+  'Cormorant Garamond',
+  'DM Serif Display',
+  'Libre Baskerville',
+  'Quicksand',
+  'Satisfy',
+  'Space Grotesk',
+]
+
 test('creates a card and updates the live preview', async ({ page }) => {
   await page.goto('/')
 
@@ -65,4 +76,17 @@ test('applies an expressive message font and preserves it in shared cards', asyn
   const url = await page.getByRole('textbox', { name: 'Share link' }).inputValue()
   await page.goto(url)
   await expect(page.locator('.preview-message')).toHaveClass(/message-font-dancing-script/)
+})
+
+test('registers every expressive message font as an actual @font-face, not just a name in CSS', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => document.fonts.ready)
+
+  const registeredFamilies = await page.evaluate(() =>
+    [...document.fonts].filter((face) => face.status === 'loaded').map((face) => face.family.replaceAll('"', '')),
+  )
+
+  messageFontFamilies.forEach((family) => {
+    expect(registeredFamilies, `expected "${family}" to be registered as a loaded @font-face`).toContain(family)
+  })
 })
