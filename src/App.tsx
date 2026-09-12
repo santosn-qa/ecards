@@ -13,14 +13,19 @@ import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
 
-function SiteHeader() {
+type SiteHeaderProps = {
+  navHref?: string
+  navLabel?: string
+}
+
+function SiteHeader({ navHref = '#/guide', navLabel = 'How to guide' }: SiteHeaderProps) {
   return (
     <header className="site-header">
       <a className="brand" href="#/" aria-label="Little Hello home">
         <span className="brand-mark" aria-hidden="true">✦</span><span>Little Hello</span>
       </a>
       <nav className="site-nav" aria-label="Primary navigation">
-        <a href="#/guide">How to guide</a>
+        <a href={navHref}>{navLabel}</a>
         <p className="privacy-note"><span aria-hidden="true">⌁</span> Made privately on your device</p>
       </nav>
     </header>
@@ -44,18 +49,18 @@ function GuidePage() {
 
   return (
     <div className="app-shell guide-shell">
-      <SiteHeader />
+      <SiteHeader navHref="#/" navLabel="Back to Little Hello →" />
       <main className="guide-main">
         <section className="guide-hero" aria-labelledby="guide-title">
           <div className="guide-copy">
             <p className="eyebrow">How to guide</p>
             <h1 id="guide-title">Send a Little Hello in minutes.</h1>
-            <p className="hero-text">A quick visual guide for making a card and for opening one someone sends you.</p>
+            <p className="hero-text">Everything you need to make, send, and open a Little Hello card.</p>
             <a className="primary-action" href="#/">Start Making a Card</a>
           </div>
           <div className="guide-hero-note" aria-label="Little Hello privacy note">
             <span>✦</span>
-            <p>No account needed. Cards are created in your browser and shared with a private link or downloaded image.</p>
+            <p>No account. No fuss.<br />Make your card, share it with a private link, or download it as an image.</p>
           </div>
         </section>
 

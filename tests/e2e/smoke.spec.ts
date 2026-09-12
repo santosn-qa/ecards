@@ -75,6 +75,7 @@ test('links from the landing page to the how-to guide', async ({ page }) => {
   await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'How to guide' }).click()
   await expect(page).toHaveURL(/#\/guide$/)
   await expect(page.getByRole('heading', { name: 'Send a Little Hello in minutes.' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Back to Little Hello →' })).toHaveAttribute('href', '#/')
 
   await page.getByRole('link', { name: 'Start Making a Card' }).click()
   await expect(page.getByRole('heading', { name: 'Make someone’s day.' })).toBeVisible()
