@@ -86,6 +86,17 @@ design, and keep retired templates readable whenever practical. Keep artwork
 and card content separate so the renderer can evolve without changing the
 template data contract.
 
+## Support Little Hello
+
+Little Hello is free, with no ads, paywalls, accounts, or payments required to
+create, download, or share a card. If you'd like to help keep it going, you
+can send a little love back via [Ko-fi](https://ko-fi.com/nourilee) — this is
+entirely optional and Ko-fi handles all payment details; Little Hello never
+sees or stores any card content, personal information, or payment data.
+
+The in-app prompt is a beta feature controlled by a single flag in
+`src/config/support.ts` and can be disabled by setting `enabled: false`.
+
 ## Credit
 
 Created by [Nourilee Santos](https://www.linkedin.com/in/nourileesantos/).
