@@ -22,6 +22,85 @@ async function samplePngPixel(page: import('@playwright/test').Page, pngPath: st
   )
 }
 
+async function getDownloadedTextBounds(page: import('@playwright/test').Page, pngPath: string, region: { x: number; y: number; width: number; height: number }) {
+  const base64 = readFileSync(pngPath).toString('base64')
+  return page.evaluate(
+    async ({ dataUrl, region }) => {
+      const image = new Image()
+      image.src = dataUrl
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('failed to decode downloaded PNG'))
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      const pixels = context.getImageData(region.x, region.y, region.width, region.height).data
+
+      let minX = Number.POSITIVE_INFINITY
+      let minY = Number.POSITIVE_INFINITY
+      let maxX = Number.NEGATIVE_INFINITY
+      let maxY = Number.NEGATIVE_INFINITY
+      for (let y = 0; y < region.height; y += 1) {
+        for (let x = 0; x < region.width; x += 1) {
+          const index = (y * region.width + x) * 4
+          const [red, green, blue, alpha] = pixels.slice(index, index + 4)
+          if (alpha > 240 && red < 170 && green < 150 && blue < 130) {
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            maxX = Math.max(maxX, x)
+            maxY = Math.max(maxY, y)
+          }
+        }
+      }
+
+      if (!Number.isFinite(minX)) throw new Error('no text-colored pixels found in downloaded PNG region')
+      return { x: region.x + minX, y: region.y + minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+    },
+    { dataUrl: `data:image/png;base64,${base64}`, region },
+  )
+}
+
+async function getCanvasTextBounds(page: import('@playwright/test').Page, options: { text: string; font: string; baselineY: number; tracking?: number }) {
+  return page.evaluate(({ text, font, baselineY, tracking = 0 }) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 760
+    canvas.height = 180
+    const context = canvas.getContext('2d')!
+    context.font = font
+    context.textBaseline = 'alphabetic'
+    context.fillStyle = '#4a3b32'
+
+    let cursorX = 40
+    for (const character of text) {
+      context.fillText(character, cursorX, baselineY)
+      cursorX += context.measureText(character).width + tracking
+    }
+
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        if (pixels[(y * canvas.width + x) * 4 + 3] > 0) {
+          minX = Math.min(minX, x)
+          minY = Math.min(minY, y)
+          maxX = Math.max(maxX, x)
+          maxY = Math.max(maxY, y)
+        }
+      }
+    }
+
+    if (!Number.isFinite(minX)) throw new Error('no reference text pixels were drawn')
+    return { width: maxX - minX + 1, height: maxY - minY + 1 }
+  }, options)
+}
+
 const messageFontFamilies = [
   'Caveat',
   'Dancing Script',
@@ -146,6 +225,39 @@ test('downloaded PNG renders the full-bleed artwork at full fidelity, not a blur
   const [r2, g2, b2] = downloadedPixel
   const distance = Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2)
   expect(distance, `expected downloaded artwork pixel to match the source image: source rgb(${r1},${g1},${b1}) vs downloaded rgb(${r2},${g2},${b2})`).toBeLessThan(12)
+})
+
+test('downloaded PNG matches the live preview typography for the card text', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: 'To optional' }).fill('Babe')
+  await page.getByRole('textbox', { name: /Your message/ }).fill('You are amazing')
+  await page.evaluate(() => document.fonts.ready)
+
+  const previewMessageFont = await page.locator('.preview-message').evaluate((element) => getComputedStyle(element).fontFamily)
+  expect(previewMessageFont).toContain('Caveat')
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  const download = await downloadPromise
+  const pngPath = (await download.path())!
+
+  const messageBounds = await getDownloadedTextBounds(page, pngPath, { x: 70, y: 260, width: 520, height: 100 })
+  const expectedMessageBounds = await getCanvasTextBounds(page, {
+    text: 'You are amazing',
+    font: `400 44px ${previewMessageFont}`,
+    baselineY: 80,
+  })
+  expect(Math.abs(messageBounds.width - expectedMessageBounds.width), `downloaded message width ${messageBounds.width}px should match the live Caveat font width ${expectedMessageBounds.width}px`).toBeLessThanOrEqual(22)
+  expect(Math.abs(messageBounds.height - expectedMessageBounds.height), `downloaded message height ${messageBounds.height}px should match the live Caveat font height ${expectedMessageBounds.height}px`).toBeLessThanOrEqual(12)
+
+  const taglineBounds = await getDownloadedTextBounds(page, pngPath, { x: 70, y: 120, width: 520, height: 48 })
+  const expectedTaglineBounds = await getCanvasTextBounds(page, {
+    text: 'MAKE A LITTLE NOISE',
+    font: '400 22px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    baselineY: 38,
+    tracking: 22 * 0.12,
+  })
+  expect(Math.abs(taglineBounds.width - expectedTaglineBounds.width), `downloaded tagline width ${taglineBounds.width}px should match the live uppercase tracked width ${expectedTaglineBounds.width}px`).toBeLessThanOrEqual(28)
 })
 
 test('applies an expressive message font and preserves it in shared cards', async ({ page }) => {
