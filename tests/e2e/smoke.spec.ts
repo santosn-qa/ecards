@@ -1,4 +1,26 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+
+async function samplePngPixel(page: import('@playwright/test').Page, pngPath: string, x: number, y: number) {
+  const base64 = readFileSync(pngPath).toString('base64')
+  return page.evaluate(
+    async ({ dataUrl, x, y }) => {
+      const image = new Image()
+      image.src = dataUrl
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('failed to decode downloaded PNG'))
+      })
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      return Array.from(context.getImageData(x, y, 1, 1).data)
+    },
+    { dataUrl: `data:image/png;base64,${base64}`, x, y },
+  )
+}
 
 const messageFontFamilies = [
   'Caveat',
@@ -57,6 +79,41 @@ test('downloads a PNG from the editor', async ({ page }) => {
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toMatch(/little-hello-birthday-confetti-01\.png/)
+})
+
+test('downloaded PNG renders the full-bleed artwork at full fidelity, not a blurred low-res decode', async ({ page }) => {
+  const samplePoint = { x: 1020, y: 1300 }
+
+  await page.goto('/')
+
+  const expectedPixel = await page.evaluate(
+    async ({ x, y }) => {
+      const width = 1080
+      const height = 1350
+      const response = await fetch(`${location.origin}/artwork/celebration-cake-ribbon.jpg`)
+      const bitmap = await createImageBitmap(await response.blob())
+      const scale = Math.max(width / bitmap.width, height / bitmap.height)
+      const drawWidth = bitmap.width * scale
+      const drawHeight = bitmap.height * scale
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')!
+      context.drawImage(bitmap, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+      return Array.from(context.getImageData(x, y, 1, 1).data)
+    },
+    samplePoint,
+  )
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  const download = await downloadPromise
+  const downloadedPixel = await samplePngPixel(page, (await download.path())!, samplePoint.x, samplePoint.y)
+
+  const [r1, g1, b1] = expectedPixel
+  const [r2, g2, b2] = downloadedPixel
+  const distance = Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2)
+  expect(distance, `expected downloaded artwork pixel to match the source image: source rgb(${r1},${g1},${b1}) vs downloaded rgb(${r2},${g2},${b2})`).toBeLessThan(12)
 })
 
 test('applies an expressive message font and preserves it in shared cards', async ({ page }) => {

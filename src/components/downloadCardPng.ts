@@ -13,6 +13,19 @@ function hexToRgb(hex: string) {
   return `${r},${g},${b}`
 }
 
+async function loadArtworkBitmap(url: string): Promise<ImageBitmap> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Unable to fetch artwork image')
+  return createImageBitmap(await response.blob())
+}
+
+function drawArtworkCover(context: CanvasRenderingContext2D, bitmap: ImageBitmap, width: number, height: number) {
+  const scale = Math.max(width / bitmap.width, height / bitmap.height)
+  const drawWidth = bitmap.width * scale
+  const drawHeight = bitmap.height * scale
+  context.drawImage(bitmap, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+}
+
 function wrapMessage(value: string, maxCharacters = 28, maxLines = 5) {
   return value.split(/\r?\n/).flatMap((paragraph) => {
     const words = paragraph.split(/\s+/).filter(Boolean)
@@ -62,7 +75,7 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
   const supportingColor = template.artwork.supportingTextColor
   const artworkPath = template.artwork.asset ?? ''
   const artwork = isFullBleed
-    ? `<image href="${window.location.origin}${import.meta.env.BASE_URL}artwork/${artworkPath}" x="0" y="0" width="1080" height="1350" preserveAspectRatio="xMidYMid slice"/>`
+    ? ''
     : template.collection === 'botanical'
       ? `<rect width="1080" height="1350" fill="#efe1c9"/><rect x="62" y="62" width="956" height="1226" fill="none" stroke="#8a6750" stroke-width="2" stroke-dasharray="3 8"/><path d="M-30 1270C140 1010 120 650 380 300M20 1290C250 1160 300 820 280 470" fill="none" stroke="#607b55" stroke-width="7"/><g fill="#819b68"><ellipse cx="190" cy="980" rx="38" ry="92" transform="rotate(-48 190 980)"/><ellipse cx="140" cy="760" rx="32" ry="82" transform="rotate(48 140 760)"/><ellipse cx="260" cy="560" rx="29" ry="72" transform="rotate(-52 260 560)"/></g><g fill="#b9675d" stroke="#814a48" stroke-width="2"><circle cx="390" cy="280" r="54"/><circle cx="390" cy="280" r="20"/></g>`
       : template.collection === 'celebration'
@@ -89,18 +102,22 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
     <text x="${messageX}" y="${isFullBleed ? 320 : 640}" fill="${messageColor}" font-family="${escapeXml(messageFont.family)}" font-size="${messageSize}">${message}</text>
     <text x="${messageX}" y="${isFullBleed ? 1220 : 1140}" fill="${isFullBleed ? messageColor : supportingColor}" font-weight="${isFullBleed ? 600 : 400}" font-family="Arial,sans-serif" font-size="${isFullBleed ? 28 : 30}">${from}</text>${decorativeGlyphs}
   </svg>`
-  const image = new Image()
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  const artworkBitmap = isFullBleed
+    ? await loadArtworkBitmap(`${window.location.origin}${import.meta.env.BASE_URL}artwork/${artworkPath}`)
+    : null
+  const overlayImage = new Image()
+  overlayImage.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
   await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve()
-    image.onerror = () => reject(new Error('Unable to render card image'))
+    overlayImage.onload = () => resolve()
+    overlayImage.onerror = () => reject(new Error('Unable to render card image'))
   })
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Canvas is unavailable')
-  context.drawImage(image, 0, 0)
+  if (artworkBitmap) drawArtworkCover(context, artworkBitmap, width, height)
+  context.drawImage(overlayImage, 0, 0)
   const link = document.createElement('a')
   link.download = `little-hello-${template.id}.png`
   link.href = canvas.toDataURL('image/png')
