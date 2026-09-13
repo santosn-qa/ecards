@@ -207,8 +207,8 @@ test('generates a share URL and opens the shared card view', async ({ page }) =>
   await page.getByRole('textbox', { name: 'From optional' }).fill('Nouri')
 
   const shareLink = page.getByRole('textbox', { name: 'Share link' })
+  await expect(shareLink).toHaveValue(/#\/card\/v2\//)
   const url = await shareLink.inputValue()
-  expect(url).toContain('#/card/')
 
   await page.goto(url)
   await expect(page.getByRole('heading', { name: 'Mom, this is for you.' })).toBeVisible()
@@ -216,8 +216,27 @@ test('generates a share URL and opens the shared card view', async ({ page }) =>
   await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
 })
 
+test('still opens a card shared with the old (pre-compact) link format', async ({ page }) => {
+  const legacyPayload = btoa(JSON.stringify({
+    v: 1,
+    template: 'birthday-sunshine-01',
+    to: 'Mom',
+    message: 'Happy birthday!',
+    from: 'Nouri',
+  }))
+  await page.goto(`/#/card/${legacyPayload}`)
+  await expect(page.getByRole('heading', { name: 'Mom, this is for you.' })).toBeVisible()
+  await expect(page.getByRole('article')).toContainText('Happy birthday!')
+})
+
 test('handles malformed shared URLs without crashing', async ({ page }) => {
   await page.goto('/#/card/not-a-valid-card')
+  await expect(page.getByRole('heading', { name: 'We couldn’t open this card.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
+})
+
+test('handles malformed v2 shared URLs without crashing', async ({ page }) => {
+  await page.goto('/#/card/v2/not-a-valid-payload')
   await expect(page.getByRole('heading', { name: 'We couldn’t open this card.' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
 })
@@ -336,7 +355,9 @@ test('applies an expressive message font and preserves it in shared cards', asyn
   const supportingFont = await toFrom.first().evaluate((element) => getComputedStyle(element).fontFamily)
   expect(await toFrom.last().evaluate((element) => getComputedStyle(element).fontFamily)).toBe(supportingFont)
 
-  const url = await page.getByRole('textbox', { name: 'Share link' }).inputValue()
+  const shareLink = page.getByRole('textbox', { name: 'Share link' })
+  await expect(shareLink).toHaveValue(/#\/card\/v2\//)
+  const url = await shareLink.inputValue()
   await page.goto(url)
   await expect(page.locator('.preview-message')).toHaveClass(/message-font-dancing-script/)
 })
