@@ -1,0 +1,61 @@
+# Little Hello — Sent Counter Worker
+
+A tiny Cloudflare Worker holding one anonymous integer: how many times a
+Little Hello card has been shared, copied, or downloaded. No card content,
+no personal data, no cookies, no per-user identifiers are ever stored or
+transmitted — see `docs/superpowers/specs/2026-09-13-sent-counter-design.md`
+in the main repo for the full privacy boundary.
+
+## One-time setup
+
+1. Install dependencies: `npm install`
+2. Log in to Cloudflare: `npx wrangler login`
+3. Create the KV namespace: `npx wrangler kv namespace create COUNTER_KV`
+4. Copy the returned `id` into `wrangler.toml`'s `kv_namespaces[0].id`.
+5. Edit `ALLOWED_ORIGINS` in `src/index.ts` to include your real production
+   domain (the GitHub Pages URL is included by default).
+
+## Deploy
+
+```bash
+npm run deploy
+```
+
+This prints the Worker's URL (e.g. `https://little-hello-counter.<you>.workers.dev`).
+Set that as `VITE_COUNTER_API_URL` in the main app's build (see the main
+repo's README and `.github/workflows/deploy.yml`) to turn the feature on.
+
+## Local development
+
+```bash
+npm run dev
+```
+
+## Manual verification (no automated test suite for this Worker)
+
+With `npm run dev` running (defaults to `http://localhost:8787`):
+
+```bash
+# Read the current count (starts at 0 until KV is written to)
+curl http://localhost:8787/count
+
+# Increment it
+curl -X POST http://localhost:8787/increment
+
+# Confirm the debounce: calling increment again immediately returns the same
+# count instead of bumping it again
+curl -X POST http://localhost:8787/increment
+
+# Confirm /count now reflects the single increment
+curl http://localhost:8787/count
+```
+
+Expected: the first `/increment` returns `{"count":1}`; the immediate second
+call also returns `{"count":1}` (debounced, not double-counted); `/count`
+confirms `1`. Waiting 60+ seconds between calls allows a new increment.
+
+## Known limitations (accepted, not bugs)
+
+- The 60-second per-IP debounce is Cloudflare KV's minimum `expirationTtl` —
+  it stops accidental double-counts, not determined abuse.
+- This is a feel-good approximate number, not an audited metric.
