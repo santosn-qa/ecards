@@ -130,7 +130,6 @@ function App() {
   const [notice, setNotice] = useState('')
   const [messageIsTyped, setMessageIsTyped] = useState(false)
   const [confirmingSampleOverwrite, setConfirmingSampleOverwrite] = useState(false)
-  const [confirmingEmptySend, setConfirmingEmptySend] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [showSupportPanel, setShowSupportPanel] = useState(false)
   const hasShownSupportPanelRef = useRef(false)
@@ -255,7 +254,6 @@ function App() {
       setNotice('')
       setMessageIsTyped(false)
       setConfirmingSampleOverwrite(false)
-      setConfirmingEmptySend(false)
     }
   }
 
@@ -268,7 +266,6 @@ function App() {
     updateDraft('message', value)
     setMessageIsTyped(value.trim().length > 0)
     setConfirmingSampleOverwrite(false)
-    setConfirmingEmptySend(false)
   }
 
   function clearMessage() {
@@ -278,13 +275,8 @@ function App() {
   }
 
   function confirmOrWarnEmptyMessage(actionLabel: string) {
-    if (draft.message.trim() || confirmingEmptySend) {
-      setConfirmingEmptySend(false)
-      return true
-    }
-    setConfirmingEmptySend(true)
-    setNotice(`Your message is empty — click ${actionLabel} again to send it anyway.`)
-    return false
+    if (draft.message.trim()) return true
+    return window.confirm(`Your message is empty — ${actionLabel} anyway?`)
   }
 
   function applySampleMessage(text: string) {

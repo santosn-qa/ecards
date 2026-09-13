@@ -353,16 +353,41 @@ test('generates a share URL and opens the shared card view', async ({ page }) =>
   await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
 })
 
-test('warns before copying or sharing a card with an empty message, and proceeds on confirmation', async ({ page, context }) => {
+test('warns with a blocking confirm dialog before copying a card with an empty message, and respects Cancel', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-write'])
   await page.goto('/')
 
+  let dismissedDialogMessage: string | null = null
+  page.once('dialog', (dialog) => {
+    dismissedDialogMessage = dialog.message()
+    void dialog.dismiss()
+  })
   await page.getByRole('button', { name: 'Copy Link' }).click()
-  await expect(page.getByRole('status')).toContainText(/message is empty/i)
-  const clipboardAfterFirstClick = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))
-  expect(clipboardAfterFirstClick).toBe('')
+  expect(dismissedDialogMessage, 'expected a confirm dialog to appear').toMatch(/message is empty/i)
+  const clipboardAfterDismiss = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))
+  expect(clipboardAfterDismiss).toBe('')
 
+  let acceptedDialogSeen = false
+  page.once('dialog', (dialog) => {
+    acceptedDialogSeen = true
+    void dialog.accept()
+  })
   await page.getByRole('button', { name: 'Copy Link' }).click()
+  expect(acceptedDialogSeen, 'expected a confirm dialog on the second click too').toBe(true)
+  await expect(page.getByRole('status')).toHaveText('Link copied!')
+})
+
+test('warns with a Share Card-specific confirm dialog before sharing a card with an empty message', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-write'])
+  await page.goto('/')
+
+  let dialogMessage: string | null = null
+  page.once('dialog', (dialog) => {
+    dialogMessage = dialog.message()
+    void dialog.accept()
+  })
+  await page.getByRole('button', { name: 'Share Card' }).click()
+  expect(dialogMessage, 'expected a confirm dialog to appear').toMatch(/Share Card/)
   await expect(page.getByRole('status')).toHaveText('Link copied!')
 })
 
@@ -375,13 +400,20 @@ test('does not warn about an empty message once one has been written', async ({ 
   await expect(page.getByRole('status')).toHaveText('Link copied!')
 })
 
-test('warns before downloading a card with an empty message, and proceeds on confirmation', async ({ page }) => {
+test('warns with a blocking confirm dialog before downloading a card with an empty message, and respects Cancel', async ({ page }) => {
   await page.goto('/')
 
+  let dismissedDialogMessage: string | null = null
+  page.once('dialog', (dialog) => {
+    dismissedDialogMessage = dialog.message()
+    void dialog.dismiss()
+  })
   await page.getByRole('button', { name: 'Download Card' }).click()
-  await expect(page.getByRole('status')).toContainText(/message is empty/i)
+  expect(dismissedDialogMessage, 'expected a confirm dialog to appear').toMatch(/message is empty/i)
+  await expect(page.getByRole('status')).not.toHaveText('Card downloaded!')
 
   const downloadPromise = page.waitForEvent('download')
+  page.once('dialog', (d) => void d.accept())
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toMatch(/little-hello-birthday-confetti-01\.png/)
@@ -445,7 +477,7 @@ test('downloaded PNG renders the full-bleed artwork at full fidelity, not a blur
     samplePoint,
   )
 
-  await page.getByRole('button', { name: 'Download Card' }).click()
+  page.once('dialog', (dialog) => void dialog.accept())
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
@@ -499,7 +531,7 @@ test('live preview does not auto-hyphenate the placeholder message at narrow car
   await expect(previewMessage).toHaveText('Your message will appear here.')
   await expect(previewMessage).toHaveCSS('hyphens', 'none')
 
-  await page.getByRole('button', { name: 'Download Card' }).click()
+  page.once('dialog', (dialog) => void dialog.accept())
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
