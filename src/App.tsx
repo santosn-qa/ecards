@@ -5,6 +5,7 @@ import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
 import { cardTemplates, occasions, type CardDraft, type Occasion } from './data/templates'
 import { getMessageFont, messageFonts, type MessageFontId } from './data/typography'
+import { getSampleMessages } from './data/sampleMessages'
 import { SUPPORT_CONFIG } from './config/support'
 import { readDismissedAt, recordDismissal, shouldShowSupportPrompt } from './support/supportPrompt'
 import { SupportPanel } from './components/SupportPanel'
@@ -299,7 +300,17 @@ function App() {
               <div className="section-heading compact"><div><p className="step-label">03 <span>of 03</span></p><h2>Write your message</h2></div></div>
               <div className="form-fields">
                 <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
-                <label><span>Your message <small>{draft.message.length}/500</small></span><textarea value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} /></label>
+                <label>
+                  <span>Your message <small>{draft.message.length}/500</small></span>
+                  <div className="sample-chips" role="list" aria-label="Sample messages">
+                    {getSampleMessages(occasion).map((sample) => (
+                      <button className="sample-chip" key={sample.tone} type="button" onClick={() => updateDraft('message', sample.text)}>
+                        {sample.tone}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
+                </label>
                 <label><span>From <small>optional</small></span><input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" /></label>
               </div>
               <div className="font-picker" aria-labelledby="message-font-title">
