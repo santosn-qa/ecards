@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { decodeCardHash, createCardUrl, encodeCard, type DecodeResult } from './card/codec'
+import { decodeCardHash, createCardUrl, type DecodeResult } from './card/codec'
 import { CardRenderer } from './components/CardRenderer'
 import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
@@ -125,6 +125,8 @@ function App() {
   const [isExporting, setIsExporting] = useState(false)
   const [showSupportPanel, setShowSupportPanel] = useState(false)
   const hasShownSupportPanelRef = useRef(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const shareUrlGenerationRef = useRef(0)
   const visibleTemplates = useMemo(
     () => cardTemplates.filter((template) => template.occasion === occasion),
     [occasion],
@@ -140,6 +142,13 @@ function App() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  useEffect(() => {
+    const generation = ++shareUrlGenerationRef.current
+    createCardUrl(draft, selectedTemplate.id).then((url) => {
+      if (shareUrlGenerationRef.current === generation) setShareUrl(url)
+    })
+  }, [draft, selectedTemplate.id])
 
   if (hashPath === '#/guide') {
     return <GuidePage />
@@ -217,7 +226,7 @@ function App() {
   }
 
   async function copyLink() {
-    const url = createCardUrl(draft, selectedTemplate.id)
+    const url = await createCardUrl(draft, selectedTemplate.id)
     try {
       if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
       await navigator.clipboard.writeText(url)
@@ -229,7 +238,7 @@ function App() {
   }
 
   async function shareCard() {
-    const url = createCardUrl(draft, selectedTemplate.id)
+    const url = await createCardUrl(draft, selectedTemplate.id)
     if ('share' in navigator) {
       try {
         await navigator.share({ title: 'A Little Hello card', text: 'Someone made a card for you.', url })
@@ -255,8 +264,6 @@ function App() {
       setIsExporting(false)
     }
   }
-
-  const currentUrl = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}#/card/${encodeCard(draft, selectedTemplate.id)}`
 
   return (
     <div className="app-shell">
@@ -353,9 +360,9 @@ function App() {
                 <button className="secondary-action" type="button" onClick={exportCard} disabled={isExporting}>{isExporting ? 'Preparing…' : 'Download Card'}</button>
               </div>
               <label className="share-link-field">Share link
-                <input readOnly aria-label="Share link" value={currentUrl} onFocus={(event) => event.currentTarget.select()} />
+                <input readOnly aria-label="Share link" value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
               </label>
-              <p className="action-status" role="status" aria-live="polite">{notice || `Your share link is ready: ${currentUrl}`}</p>
+              <p className="action-status" role="status" aria-live="polite">{notice || `Your share link is ready: ${shareUrl}`}</p>
               {showSupportPanel && <SupportPanel onDismiss={dismissSupportPanel} />}
             </div>
           </div>
