@@ -194,7 +194,8 @@ function App() {
     const firstTemplate = cardTemplates.find((template) => template.occasion === nextOccasion)
     if (firstTemplate) {
       setSelectedTemplateId(firstTemplate.id)
-      setDraft((current) => ({ ...current, messageFont: firstTemplate.typography.defaultMessageFont }))
+      setDraft((current) => ({ ...current, message: '', messageFont: firstTemplate.typography.defaultMessageFont }))
+      setNotice('')
     }
   }
 
@@ -301,7 +302,17 @@ function App() {
               <div className="form-fields">
                 <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
                 <div className="message-field">
-                  <label htmlFor="card-message"><span>Your message <small>{draft.message.length}/500</small></span></label>
+                  <div className="message-field-heading">
+                    <label htmlFor="card-message">Your message</label>
+                    <span className="message-field-meta">
+                      <small>{draft.message.length}/500</small>
+                      {draft.message && (
+                        <button className="clear-message-button" type="button" onClick={() => updateDraft('message', '')}>
+                          Clear
+                        </button>
+                      )}
+                    </span>
+                  </div>
                   <p className="sample-chips-hint">Need a starting point? Try one, or just write your own.</p>
                   <div className="sample-chips" role="list" aria-label="Sample messages">
                     {getSampleMessages(occasion).map((sample) => (
@@ -310,7 +321,7 @@ function App() {
                       </button>
                     ))}
                   </div>
-                  <textarea id="card-message" value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
+                  <textarea id="card-message" aria-label={`Your message ${draft.message.length}/500`} value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
                 </div>
                 <label><span>From <small>optional</small></span><input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" /></label>
               </div>

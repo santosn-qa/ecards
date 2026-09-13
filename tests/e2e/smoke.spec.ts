@@ -167,6 +167,26 @@ test('fills the message from a sample chip, scoped to the selected occasion', as
   await expect(messageField).toHaveValue('Just a little note to say... thank you. Truly.')
 })
 
+test('clears the message when switching occasion, and offers a clear button while there is text', async ({ page }) => {
+  await page.goto('/')
+
+  const messageField = page.getByRole('textbox', { name: /Your message/ })
+  const clearButton = page.getByRole('button', { name: 'Clear' })
+
+  await expect(clearButton).toHaveCount(0)
+  await messageField.fill('A note for Birthday')
+  await expect(clearButton).toBeVisible()
+
+  await page.getByRole('button', { name: 'Love' }).click()
+  await expect(messageField).toHaveValue('')
+  await expect(clearButton).toHaveCount(0)
+
+  await messageField.fill('A note for Love')
+  await clearButton.click()
+  await expect(messageField).toHaveValue('')
+  await expect(clearButton).toHaveCount(0)
+})
+
 test('links from the landing page to the how-to guide', async ({ page }) => {
   await page.goto('/')
 
