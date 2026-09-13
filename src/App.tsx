@@ -302,6 +302,7 @@ function App() {
                 <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
                 <div className="message-field">
                   <label htmlFor="card-message"><span>Your message <small>{draft.message.length}/500</small></span></label>
+                  <p className="sample-chips-hint">Need a starting point? Try one, or just write your own.</p>
                   <div className="sample-chips" role="list" aria-label="Sample messages">
                     {getSampleMessages(occasion).map((sample) => (
                       <button className="sample-chip" key={sample.tone} type="button" onClick={() => updateDraft('message', sample.text)}>
