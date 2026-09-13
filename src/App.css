@@ -53,6 +53,7 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .form-fields small { float: right; color: #aaa09b; font-size: .72rem; font-weight: 400; }
 .form-fields input, .form-fields textarea { width: 100%; border: 1px solid #ded6d1; border-radius: 8px; outline: none; padding: 13px 15px; background: #fff; color: #27232d; resize: vertical; }
 .form-fields input:focus, .form-fields textarea:focus { border-color: #d26f4f; box-shadow: 0 0 0 3px #d26f4f20; }
+.message-field { display: grid; gap: 8px; }
 .sample-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .sample-chip { min-height: 36px; padding: 0 14px; border: 1px solid #e1d9d4; border-radius: 100px; background: transparent; color: #716965; font-size: .78rem; font-weight: 600; transition: .2s ease; }
 .sample-chip:hover { border-color: #d26f4f; background: #fff1ec; color: #b5583d; }

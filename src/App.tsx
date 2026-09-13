@@ -300,8 +300,8 @@ function App() {
               <div className="section-heading compact"><div><p className="step-label">03 <span>of 03</span></p><h2>Write your message</h2></div></div>
               <div className="form-fields">
                 <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
-                <label>
-                  <span>Your message <small>{draft.message.length}/500</small></span>
+                <div className="message-field">
+                  <label htmlFor="card-message"><span>Your message <small>{draft.message.length}/500</small></span></label>
                   <div className="sample-chips" role="list" aria-label="Sample messages">
                     {getSampleMessages(occasion).map((sample) => (
                       <button className="sample-chip" key={sample.tone} type="button" onClick={() => updateDraft('message', sample.text)}>
@@ -309,8 +309,8 @@ function App() {
                       </button>
                     ))}
                   </div>
-                  <textarea value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
-                </label>
+                  <textarea id="card-message" value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
+                </div>
                 <label><span>From <small>optional</small></span><input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" /></label>
               </div>
               <div className="font-picker" aria-labelledby="message-font-title">
