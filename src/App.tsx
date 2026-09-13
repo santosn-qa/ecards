@@ -156,10 +156,11 @@ function App() {
 
   useEffect(() => {
     // The sharedResult state initializer above already computed the synchronous
-    // value for the initial hash (none/legacy) or undefined (compact). This kicks
-    // off the actual async decode for a compact initial hash; for none/legacy it
-    // just re-applies the same value, which is a no-op re-render.
-    applySharedHash(window.location.hash)
+    // value for the initial hash (none/legacy). Only a compact initial hash still
+    // needs work here, to kick off its async decode.
+    if (routeCardHash(window.location.hash).kind === 'compact') {
+      applySharedHash(window.location.hash)
+    }
   }, [])
 
   useEffect(() => {
