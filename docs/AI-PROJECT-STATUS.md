@@ -20,6 +20,15 @@ Phase 2: shareable cards and local export.
 - Shared-card presentation view
 - Clipboard/Web Share actions
 - Native 1080px PNG export
+- Branded page title and Open Graph/Twitter share-preview metadata
+- WCAG AA-compliant secondary text and primary-button contrast
+- Empty-message confirmation guard on Copy Link/Share Card
+- Typed-draft protection on sample message chips (free browsing when empty,
+  confirm-to-replace once the user has typed their own text)
+- Mobile live preview ordered after the message step, not before the design step
+- Visible "Made privately" mobile trust label (no longer `font-size: 0`)
+- Desktop chevron controls for the message-font carousel
+- Character counters on the To/From fields
 
 ## Known issues and deferred work
 

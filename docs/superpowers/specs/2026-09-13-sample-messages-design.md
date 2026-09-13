@@ -80,7 +80,7 @@ A chip row is inserted directly above the message `<textarea>` in the "Write you
 
 ### Behavior
 
-- Clicking a chip calls the existing `updateDraft('message', text)`, which also clears `notice` — identical to any other manual edit to the field. No confirmation dialog, even if the textarea already has text: the click always replaces the current message.
+- Clicking a chip replaces the message immediately if the textarea is empty or still holds a previous chip's text — this lets someone freely click through tones to compare them with no friction. If the textarea holds text the user actually typed themselves, the first click instead shows an inline warning ("This will replace your message — click the sample again to confirm.") without changing the text; clicking the same or a different chip again then replaces it. Typing further, clearing the field, or switching occasion resets this guard.
 - Chips are not a toggle and carry no "selected" persisted state — after filling, the textarea is freely editable and typing does not re-highlight or dismiss any chip.
 - The chip set is derived from `occasion` (the top-level occasion state), not from `selectedTemplate` — switching the selected template within the same occasion does not change the chips; changing occasion swaps the whole set.
 - The character counter (`{draft.message.length}/500`) updates immediately after a chip fill, same as typing.

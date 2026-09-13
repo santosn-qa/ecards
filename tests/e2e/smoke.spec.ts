@@ -112,6 +112,93 @@ const messageFontFamilies = [
   'Space Grotesk',
 ]
 
+test('has a branded title and share-preview metadata instead of the generic placeholder', async ({ page }) => {
+  await page.goto('/')
+  await expect(page).toHaveTitle('Little Hello — send a little hello')
+
+  const metaContent = (name: string) => page.locator(`head meta[name="${name}"], head meta[property="${name}"]`).getAttribute('content')
+  await expect(await metaContent('description')).toMatch(/little hello/i)
+  await expect(await metaContent('og:title')).toBe('Little Hello')
+  await expect(await metaContent('og:description')).toMatch(/card/i)
+  await expect(await metaContent('og:image')).toBeTruthy()
+  await expect(await metaContent('twitter:card')).toBe('summary_large_image')
+})
+
+function relativeLuminance([r, g, b]: number[]) {
+  const linear = (channel: number) => {
+    const c = channel / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+}
+
+function contrastRatio(a: number[], b: number[]) {
+  const [l1, l2] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+  return (l1 + 0.05) / (l2 + 0.05)
+}
+
+async function rgbOf(locator: import('@playwright/test').Locator, property: 'color' | 'backgroundColor' = 'color') {
+  const value = await locator.evaluate((element, prop) => getComputedStyle(element)[prop as 'color'], property)
+  const match = value.match(/[\d.]+/g)
+  if (!match) throw new Error(`could not parse color: ${value}`)
+  return match.slice(0, 3).map(Number)
+}
+
+test('secondary text and the primary Share Card button meet WCAG AA contrast against their background', async ({ page }) => {
+  await page.goto('/')
+
+  const bodyBackground = await rgbOf(page.locator('html'), 'backgroundColor')
+
+  const sectionHint = page.getByText('Pick one to get started')
+  await expect(contrastRatio(await rgbOf(sectionHint), bodyBackground)).toBeGreaterThanOrEqual(4.5)
+
+  const shareButton = page.getByRole('button', { name: 'Share Card' })
+  const buttonBackground = await rgbOf(shareButton, 'backgroundColor')
+  const buttonText = await rgbOf(shareButton)
+  expect(contrastRatio(buttonText, buttonBackground)).toBeGreaterThanOrEqual(4.5)
+})
+
+test('keeps the "Made privately" trust message visible and readable on mobile', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  const privacyNote = page.locator('.privacy-note')
+  await expect(privacyNote).toBeVisible()
+  const { fontSize, text } = await privacyNote.evaluate((element) => ({
+    fontSize: parseFloat(getComputedStyle(element).fontSize),
+    text: element.textContent?.trim() ?? '',
+  }))
+  await context.close()
+  expect(fontSize).toBeGreaterThan(0)
+  expect(text.length).toBeGreaterThan(1)
+})
+
+test('shows the full "Made privately on your device" trust message on desktop', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByText('Made privately on your device')).toBeVisible()
+})
+
+test('on mobile, shows the live preview after the message step instead of before the design step', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  const designHeading = page.getByRole('heading', { name: 'Choose a design' })
+  const messageHeading = page.getByRole('heading', { name: 'Write your message' })
+  const preview = page.getByRole('complementary', { name: 'Live card preview' })
+
+  const [designBox, messageBox, previewBox] = await Promise.all([
+    designHeading.boundingBox(),
+    messageHeading.boundingBox(),
+    preview.boundingBox(),
+  ])
+
+  await context.close()
+  expect(designBox!.y, 'design step should appear above the live preview on mobile').toBeLessThan(previewBox!.y)
+  expect(messageBox!.y, 'message step should appear above the live preview on mobile').toBeLessThan(previewBox!.y)
+})
+
 test('has no horizontal overflow on a narrow Android viewport', async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 360, height: 800 },
@@ -130,6 +217,19 @@ test('has no horizontal overflow on a narrow Android viewport', async ({ browser
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   await context.close()
   expect(overflow, `page overflowed horizontally by ${overflow}px at a 360px viewport width`).toBeLessThanOrEqual(0)
+})
+
+test('shows a character counter for the To and From fields', async ({ page }) => {
+  await page.goto('/')
+
+  const toField = page.getByRole('textbox', { name: 'To optional' })
+  const fromField = page.getByRole('textbox', { name: 'From optional' })
+
+  await expect(page.getByText('0/60').first()).toBeVisible()
+  await toField.fill('Grandma')
+  await expect(page.getByText('7/60')).toBeVisible()
+  await fromField.fill('Nouri')
+  await expect(page.getByText('5/60')).toBeVisible()
 })
 
 test('creates a card and updates the live preview', async ({ page }) => {
@@ -162,9 +262,26 @@ test('fills the message from a sample chip, scoped to the selected occasion', as
   await page.getByRole('button', { name: 'Thank you' }).click()
   await expect(page.getByRole('button', { name: 'Formal' })).toBeVisible()
 
-  await messageField.fill('typed text should be replaceable')
+  await messageField.fill('typed text should be protected')
+  await page.getByRole('button', { name: 'Short & sweet' }).click()
+  await expect(messageField).toHaveValue('typed text should be protected')
+  await expect(page.getByRole('status')).toContainText(/replace/i)
+
   await page.getByRole('button', { name: 'Short & sweet' }).click()
   await expect(messageField).toHaveValue('Just a little note to say... thank you. Truly.')
+})
+
+test('does not warn when browsing between sample chips with no typed draft to lose', async ({ page }) => {
+  await page.goto('/')
+
+  const messageField = page.getByRole('textbox', { name: /Your message/ })
+
+  await page.getByRole('button', { name: 'Heartfelt' }).click()
+  await expect(messageField).toHaveValue(/Wishing you a birthday/)
+
+  await page.getByRole('button', { name: 'Short & sweet' }).click()
+  await expect(messageField).toHaveValue('Happy birthday! Hope your day is full of cake, laughter, and everything you love.')
+  await expect(page.getByRole('status')).not.toContainText(/replace/i)
 })
 
 test('clears the message when switching occasion, and offers a clear button while there is text', async ({ page }) => {
@@ -187,6 +304,16 @@ test('clears the message when switching occasion, and offers a clear button whil
   await expect(clearButton).toHaveCount(0)
 })
 
+test('resets scroll position to the top when navigating to the how-to guide', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => window.scrollTo(0, 800))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+
+  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'How to guide' }).click()
+  await expect(page).toHaveURL(/#\/guide$/)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+})
+
 test('links from the landing page to the how-to guide', async ({ page }) => {
   await page.goto('/')
 
@@ -197,6 +324,16 @@ test('links from the landing page to the how-to guide', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Start Making a Card' }).click()
   await expect(page.getByRole('heading', { name: 'Make someone’s day.' })).toBeVisible()
+})
+
+test('does not duplicate the raw share URL as visible status text below the share link field', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: /Your message/ }).fill('Happy birthday!')
+
+  const shareLink = page.getByRole('textbox', { name: 'Share link' })
+  await expect(shareLink).toHaveValue(/#\/card\/v2\//)
+
+  await expect(page.getByRole('status')).toHaveText('')
 })
 
 test('generates a share URL and opens the shared card view', async ({ page }) => {
@@ -214,6 +351,28 @@ test('generates a share URL and opens the shared card view', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Mom, this is for you.' })).toBeVisible()
   await expect(page.getByRole('article')).toContainText('Happy birthday!')
   await expect(page.getByRole('link', { name: 'Create Your Own Card' })).toBeVisible()
+})
+
+test('warns before copying or sharing a card with an empty message, and proceeds on confirmation', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-write'])
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Copy Link' }).click()
+  await expect(page.getByRole('status')).toContainText(/message is empty/i)
+  const clipboardAfterFirstClick = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))
+  expect(clipboardAfterFirstClick).toBe('')
+
+  await page.getByRole('button', { name: 'Copy Link' }).click()
+  await expect(page.getByRole('status')).toHaveText('Link copied!')
+})
+
+test('does not warn about an empty message once one has been written', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-write'])
+  await page.goto('/')
+  await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
+
+  await page.getByRole('button', { name: 'Copy Link' }).click()
+  await expect(page.getByRole('status')).toHaveText('Link copied!')
 })
 
 test('still opens a card shared with the old (pre-compact) link format', async ({ page }) => {
@@ -339,6 +498,20 @@ test('live preview does not auto-hyphenate the placeholder message at narrow car
 
   expect(messageBounds.width, 'downloaded placeholder should wrap at word boundaries instead of drawing "ap-pear"').toBeGreaterThanOrEqual(expectedMessageBounds.width - 24)
   await context.close()
+})
+
+test('lets desktop users step through the font carousel with chevron buttons', async ({ page }) => {
+  await page.goto('/')
+
+  const fontOptions = page.locator('.font-options')
+  const initialScrollLeft = await fontOptions.evaluate((element) => element.scrollLeft)
+
+  await page.getByRole('button', { name: 'Show more font styles' }).click()
+  await expect.poll(() => fontOptions.evaluate((element) => element.scrollLeft)).toBeGreaterThan(initialScrollLeft)
+  const afterForward = await fontOptions.evaluate((element) => element.scrollLeft)
+
+  await page.getByRole('button', { name: 'Show previous font styles' }).click()
+  await expect.poll(() => fontOptions.evaluate((element) => element.scrollLeft)).toBeLessThan(afterForward)
 })
 
 test('applies an expressive message font and preserves it in shared cards', async ({ page }) => {

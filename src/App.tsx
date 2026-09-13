@@ -27,7 +27,7 @@ function SiteHeader({ navHref = '#/guide', navLabel = 'How to guide' }: SiteHead
       </a>
       <nav className="site-nav" aria-label="Primary navigation">
         <a href={navHref}>{navLabel}</a>
-        <p className="privacy-note"><span aria-hidden="true">⌁</span> Made privately on your device</p>
+        <p className="privacy-note"><span aria-hidden="true">⌁</span> <span className="privacy-note-full">Made privately on your device</span><span className="privacy-note-short">Private</span></p>
       </nav>
     </header>
   )
@@ -128,11 +128,19 @@ function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState(cardTemplates[0].id)
   const [draft, setDraft] = useState<CardDraft>(emptyDraft)
   const [notice, setNotice] = useState('')
+  const [messageIsTyped, setMessageIsTyped] = useState(false)
+  const [confirmingSampleOverwrite, setConfirmingSampleOverwrite] = useState(false)
+  const [confirmingEmptySend, setConfirmingEmptySend] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [showSupportPanel, setShowSupportPanel] = useState(false)
   const hasShownSupportPanelRef = useRef(false)
   const [shareUrl, setShareUrl] = useState('')
   const shareUrlGenerationRef = useRef(0)
+  const fontOptionsRef = useRef<HTMLDivElement>(null)
+
+  function scrollFontOptions(direction: -1 | 1) {
+    fontOptionsRef.current?.scrollBy({ left: direction * 160, behavior: 'smooth' })
+  }
   const visibleTemplates = useMemo(
     () => cardTemplates.filter((template) => template.occasion === occasion),
     [occasion],
@@ -245,12 +253,50 @@ function App() {
       setSelectedTemplateId(firstTemplate.id)
       setDraft((current) => ({ ...current, message: '', messageFont: firstTemplate.typography.defaultMessageFont }))
       setNotice('')
+      setMessageIsTyped(false)
+      setConfirmingSampleOverwrite(false)
+      setConfirmingEmptySend(false)
     }
   }
 
   function updateDraft(field: keyof CardDraft, value: string) {
     setDraft((current) => ({ ...current, [field]: value }))
     setNotice('')
+  }
+
+  function handleMessageChange(value: string) {
+    updateDraft('message', value)
+    setMessageIsTyped(value.trim().length > 0)
+    setConfirmingSampleOverwrite(false)
+    setConfirmingEmptySend(false)
+  }
+
+  function clearMessage() {
+    updateDraft('message', '')
+    setMessageIsTyped(false)
+    setConfirmingSampleOverwrite(false)
+  }
+
+  function confirmOrWarnEmptyMessage(actionLabel: string) {
+    if (draft.message.trim() || confirmingEmptySend) {
+      setConfirmingEmptySend(false)
+      return true
+    }
+    setConfirmingEmptySend(true)
+    setNotice(`Your message is empty — click ${actionLabel} again to send it anyway.`)
+    return false
+  }
+
+  function applySampleMessage(text: string) {
+    const hasTypedDraft = messageIsTyped && draft.message.trim().length > 0
+    if (hasTypedDraft && !confirmingSampleOverwrite) {
+      setConfirmingSampleOverwrite(true)
+      setNotice('This will replace your message — click the sample again to confirm.')
+      return
+    }
+    updateDraft('message', text)
+    setMessageIsTyped(false)
+    setConfirmingSampleOverwrite(false)
   }
 
   function maybeShowSupportPanel() {
@@ -265,7 +311,8 @@ function App() {
     setShowSupportPanel(false)
   }
 
-  async function copyLink() {
+  async function copyLink(options?: { skipEmptyGuard?: boolean }) {
+    if (!options?.skipEmptyGuard && !confirmOrWarnEmptyMessage('Copy Link')) return
     const url = await createCardUrl(draft, selectedTemplate.id)
     try {
       if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
@@ -278,6 +325,7 @@ function App() {
   }
 
   async function shareCard() {
+    if (!confirmOrWarnEmptyMessage('Share Card')) return
     const url = await createCardUrl(draft, selectedTemplate.id)
     if ('share' in navigator) {
       try {
@@ -288,7 +336,7 @@ function App() {
         setNotice('Sharing was cancelled.')
       }
     } else {
-      await copyLink()
+      await copyLink({ skipEmptyGuard: true })
     }
   }
 
@@ -347,14 +395,20 @@ function App() {
             <div className="editor-panel">
               <div className="section-heading compact"><div><p className="step-label">03 <span>of 03</span></p><h2>Write your message</h2></div></div>
               <div className="form-fields">
-                <label><span>To <small>optional</small></span><input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" /></label>
+                <label>
+                  <span className="field-label-row">
+                    <span>To <small>optional</small></span>
+                    <small className="field-char-counter" aria-hidden="true">{draft.to.length}/60</small>
+                  </span>
+                  <input value={draft.to} maxLength={60} onChange={(event) => updateDraft('to', event.target.value)} placeholder="Who is this for?" />
+                </label>
                 <div className="message-field">
                   <div className="message-field-heading">
                     <label htmlFor="card-message">Your message</label>
                     <span className="message-field-meta">
                       <small>{draft.message.length}/500</small>
                       {draft.message && (
-                        <button className="clear-message-button" type="button" onClick={() => updateDraft('message', '')}>
+                        <button className="clear-message-button" type="button" onClick={clearMessage}>
                           Clear
                         </button>
                       )}
@@ -363,46 +417,56 @@ function App() {
                   <p className="sample-chips-hint">Need a starting point? Try one, or just write your own.</p>
                   <div className="sample-chips" role="list" aria-label="Sample messages">
                     {getSampleMessages(occasion).map((sample) => (
-                      <button className="sample-chip" key={sample.tone} type="button" onClick={() => updateDraft('message', sample.text)}>
+                      <button className="sample-chip" key={sample.tone} type="button" onClick={() => applySampleMessage(sample.text)}>
                         {sample.tone}
                       </button>
                     ))}
                   </div>
-                  <textarea id="card-message" aria-label={`Your message ${draft.message.length}/500`} value={draft.message} maxLength={500} onChange={(event) => updateDraft('message', event.target.value)} placeholder="Write something from the heart..." rows={5} />
+                  <textarea id="card-message" aria-label={`Your message ${draft.message.length}/500`} value={draft.message} maxLength={500} onChange={(event) => handleMessageChange(event.target.value)} placeholder="Write something from the heart..." rows={5} />
                 </div>
-                <label><span>From <small>optional</small></span><input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" /></label>
+                <label>
+                  <span className="field-label-row">
+                    <span>From <small>optional</small></span>
+                    <small className="field-char-counter" aria-hidden="true">{draft.from.length}/60</small>
+                  </span>
+                  <input value={draft.from} maxLength={60} onChange={(event) => updateDraft('from', event.target.value)} placeholder="Your name" />
+                </label>
               </div>
               <div className="font-picker" aria-labelledby="message-font-title">
                 <div className="font-picker-heading">
                   <span id="message-font-title">Personality for your message</span>
                   <small>Recommended: {getMessageFont(selectedTemplate.typography.defaultMessageFont).name}</small>
                 </div>
-                <div className="font-options" role="listbox" aria-label="Message font">
-                  {messageFonts.map((font) => (
-                    <button
-                      className={`font-option ${(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id ? 'is-selected' : ''}`}
-                      key={font.id}
-                      type="button"
-                      role="option"
-                      aria-selected={(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id}
-                      onClick={() => setDraft((current) => ({ ...current, messageFont: font.id as MessageFontId }))}
-                    >
-                      <span className="font-option-name" style={{ fontFamily: font.family }}>{font.name}</span>
-                      <span className="font-option-sample" style={{ fontFamily: font.family }}>{font.sample}</span>
-                      <span className="font-option-category">{font.category}</span>
-                    </button>
-                  ))}
+                <div className="font-options-row">
+                  <button type="button" className="font-scroll-button" aria-label="Show previous font styles" onClick={() => scrollFontOptions(-1)}>‹</button>
+                  <div className="font-options" role="listbox" aria-label="Message font" ref={fontOptionsRef}>
+                    {messageFonts.map((font) => (
+                      <button
+                        className={`font-option ${(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id ? 'is-selected' : ''}`}
+                        key={font.id}
+                        type="button"
+                        role="option"
+                        aria-selected={(draft.messageFont || selectedTemplate.typography.defaultMessageFont) === font.id}
+                        onClick={() => setDraft((current) => ({ ...current, messageFont: font.id as MessageFontId }))}
+                      >
+                        <span className="font-option-name" style={{ fontFamily: font.family }}>{font.name}</span>
+                        <span className="font-option-sample" style={{ fontFamily: font.family }}>{font.sample}</span>
+                        <span className="font-option-category">{font.category}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" className="font-scroll-button" aria-label="Show more font styles" onClick={() => scrollFontOptions(1)}>›</button>
                 </div>
               </div>
               <div className="share-actions">
                 <button className="primary-action" type="button" onClick={shareCard}>Share Card</button>
-                <button className="secondary-action" type="button" onClick={copyLink}>Copy Link</button>
+                <button className="secondary-action" type="button" onClick={() => copyLink()}>Copy Link</button>
                 <button className="secondary-action" type="button" onClick={exportCard} disabled={isExporting}>{isExporting ? 'Preparing…' : 'Download Card'}</button>
               </div>
               <label className="share-link-field">Share link
                 <input readOnly aria-label="Share link" value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
               </label>
-              <p className="action-status" role="status" aria-live="polite">{notice || `Your share link is ready: ${shareUrl}`}</p>
+              <p className="action-status" role="status" aria-live="polite">{notice}</p>
               {showSupportPanel && <SupportPanel onDismiss={dismissSupportPanel} />}
             </div>
           </div>
