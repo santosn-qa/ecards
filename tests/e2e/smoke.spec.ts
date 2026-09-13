@@ -148,6 +148,25 @@ test('creates a card and updates the live preview', async ({ page }) => {
   await expect(preview).toContainText('— Nouri')
 })
 
+test('fills the message from a sample chip, scoped to the selected occasion', async ({ page }) => {
+  await page.goto('/')
+
+  const preview = page.getByRole('complementary', { name: 'Live card preview' })
+  const messageField = page.getByRole('textbox', { name: /Your message/ })
+
+  await page.getByRole('button', { name: 'Heartfelt' }).click()
+  await expect(messageField).toHaveValue(/Wishing you a birthday/)
+  await expect(preview).toContainText('Wishing you a birthday')
+
+  await expect(page.getByRole('button', { name: 'Formal' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Thank you' }).click()
+  await expect(page.getByRole('button', { name: 'Formal' })).toBeVisible()
+
+  await messageField.fill('typed text should be replaceable')
+  await page.getByRole('button', { name: 'Short & sweet' }).click()
+  await expect(messageField).toHaveValue('Just a little note to say... thank you. Truly.')
+})
+
 test('links from the landing page to the how-to guide', async ({ page }) => {
   await page.goto('/')
 
