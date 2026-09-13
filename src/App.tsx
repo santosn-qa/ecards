@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { decodeCardHash, createCardUrl, type DecodeResult } from './card/codec'
+import { decodeCardHash, createCardUrl, routeCardHash, type DecodeResult } from './card/codec'
 import { CardRenderer } from './components/CardRenderer'
 import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
@@ -116,7 +116,13 @@ function GuidePage() {
 }
 
 function App() {
-  const [sharedResult, setSharedResult] = useState<DecodeResult | null | undefined>(() => decodeCardHash(window.location.hash))
+  const [sharedResult, setSharedResult] = useState<DecodeResult | null | undefined>(() => {
+    const route = routeCardHash(window.location.hash)
+    if (route.kind === 'none') return null
+    if (route.kind === 'legacy') return route.result
+    return undefined // compact (v2) link: decode is async, see the effect below
+  })
+  const sharedDecodeGenerationRef = useRef(0)
   const [hashPath, setHashPath] = useState(() => window.location.hash)
   const [occasion, setOccasion] = useState<Occasion>('Birthday')
   const [selectedTemplateId, setSelectedTemplateId] = useState(cardTemplates[0].id)
@@ -134,10 +140,32 @@ function App() {
   const selectedTemplate =
     cardTemplates.find((template) => template.id === selectedTemplateId) ?? visibleTemplates[0]
 
+  function applySharedHash(hash: string) {
+    // Bump the generation on every hash transition, regardless of route kind, so
+    // any decode still in flight from a previous hash is immediately invalidated
+    // even when the new hash turns out to be legacy/none rather than compact.
+    const generation = ++sharedDecodeGenerationRef.current
+    const route = routeCardHash(hash)
+    if (route.kind === 'none') return setSharedResult(null)
+    if (route.kind === 'legacy') return setSharedResult(route.result)
+    setSharedResult(undefined)
+    decodeCardHash(hash).then((result) => {
+      if (sharedDecodeGenerationRef.current === generation) setSharedResult(result)
+    })
+  }
+
+  useEffect(() => {
+    // The sharedResult state initializer above already computed the synchronous
+    // value for the initial hash (none/legacy) or undefined (compact). This kicks
+    // off the actual async decode for a compact initial hash; for none/legacy it
+    // just re-applies the same value, which is a no-op re-render.
+    applySharedHash(window.location.hash)
+  }, [])
+
   useEffect(() => {
     const handleHashChange = () => {
       setHashPath(window.location.hash)
-      setSharedResult(decodeCardHash(window.location.hash))
+      applySharedHash(window.location.hash)
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
@@ -152,6 +180,17 @@ function App() {
 
   if (hashPath === '#/guide') {
     return <GuidePage />
+  }
+
+  if (sharedResult === undefined) {
+    return (
+      <div className="app-shell shared-shell">
+        <SiteHeader />
+        <main className="shared-main" aria-busy="true">
+          <p className="eyebrow" role="status" aria-live="polite">Opening your card…</p>
+        </main>
+      </div>
+    )
   }
 
   if (sharedResult?.ok) {
