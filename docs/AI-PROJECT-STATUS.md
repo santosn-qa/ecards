@@ -15,7 +15,8 @@ Phase 2: shareable cards and local export.
 - PWA/Workbox build configuration
 - GitHub Pages deployment workflow
 - Playwright smoke-test configuration
-- Versioned, validated card URLs in the hash
+- Versioned, validated card URLs in the hash (compact v2 format with
+  native deflate compression; legacy v1 links still decode)
 - Shared-card presentation view
 - Clipboard/Web Share actions
 - Native 1080px PNG export
