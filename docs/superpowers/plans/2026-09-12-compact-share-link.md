@@ -1,6 +1,6 @@
 # Compact Share Link Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Shrink the generated share link (short JSON keys + native deflate compression) while keeping every byte of card content client-side — no third-party shortener, no backend.
 
@@ -18,7 +18,7 @@
 - Modify: `src/card/codec.ts`
 - Test: `tests/e2e/codec.spec.ts` (new)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/e2e/codec.spec.ts`:
 
@@ -84,12 +84,12 @@ test.describe('compact (v2) card codec pure logic', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx playwright test codec.spec.ts`
 Expected: FAIL — `decodeCardHash` still returns the old synchronous shape / `#/card/v2/` routing doesn't exist yet, so at minimum the round-trip tests fail (template/message/font come back wrong or the result is `null`).
 
-- [ ] **Step 3: Replace `src/card/codec.ts` with the version below**
+- [x] **Step 3: Replace `src/card/codec.ts` with the version below**
 
 This adds the compact (v2) encode/decode path and the immutable template/font code registries, rewires `decodeCardHash` to route between the legacy and compact formats, and makes `encodeCard`/`createCardUrl` async so they always produce `#/card/v2/<payload>` links. `App.tsx` still calls these synchronously at this point, so it will show type errors after this step — that's expected, and fixed by Task 2 (`copyLink`/`shareCard`/the share-link field) and Task 3 (`sharedResult` routing). Replace the full file contents:
 
@@ -269,17 +269,17 @@ export async function decodeCardHash(hash: string): Promise<DecodeResult | null>
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx playwright test codec.spec.ts`
 Expected: PASS (5 tests)
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `npm run typecheck`
 Expected: no errors. (`App.tsx` will now show type errors because `decodeCardHash`/`createCardUrl`/`encodeCard` are `async` but called synchronously — that's expected and fixed in Tasks 4–5. Confirm the *only* errors are in `src/App.tsx`, not `src/card/codec.ts`.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/card/codec.ts tests/e2e/codec.spec.ts
@@ -304,7 +304,7 @@ EOF
 
 The "Share link" input currently reads a synchronously-computed `currentUrl` (`App.tsx:169`) and `copyLink`/`shareCard` (`App.tsx:129-154`) call `createCardUrl` synchronously. All three now need the `async` codec from Task 1.
 
-- [ ] **Step 1: Replace the `currentUrl` computation and `copyLink`/`shareCard` with async-safe versions**
+- [x] **Step 1: Replace the `currentUrl` computation and `copyLink`/`shareCard` with async-safe versions**
 
 Replace lines 129–169 of `src/App.tsx` (the `copyLink`, `shareCard` functions and the `currentUrl` constant) with:
 
@@ -357,7 +357,7 @@ And add a new `useEffect` (placed after the existing hash-change `useEffect`, i.
 
 Finally, find the "Share link" input further down in the JSX (it currently reads `value={currentUrl}`, around the `share-link-field` label) and the status paragraph that reads `` `Your share link is ready: ${currentUrl}` `` — replace both `currentUrl` references with `shareUrl`.
 
-- [ ] **Step 2: Update imports**
+- [x] **Step 2: Update imports**
 
 `src/App.tsx:2` already imports `decodeCardHash, createCardUrl, encodeCard` — `encodeCard` is no longer called directly from `App.tsx` (only `createCardUrl` is), and this project has `noUnusedLocals: true` in `tsconfig.app.json`, so an unused import is a typecheck failure, not just a lint warning. Change line 2 to:
 
@@ -367,12 +367,12 @@ import { decodeCardHash, createCardUrl, type DecodeResult } from './card/codec'
 
 (`routeCardHash` isn't imported yet — it's added in Task 3, the first task that actually uses it, to avoid an unused-import typecheck failure in this task.)
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `npm run typecheck`
 Expected: remaining errors should only be about `decodeCardHash`'s initial synchronous call at `App.tsx:17` (`Type 'Promise<DecodeResult | null>' is not assignable to type 'DecodeResult | null | undefined'`) and the `hashchange` handler at `App.tsx:33` with the same mismatch — both fixed in Task 3.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/App.tsx
@@ -398,7 +398,7 @@ EOF
 
 The trickiest part: `decodeCardHash` is now `async`, but the initial `useState(() => decodeCardHash(window.location.hash))` call needs a value *synchronously* on first render. Reusing the compression path only when actually needed (legacy links and non-card visits stay perfectly synchronous, matching today's behavior exactly) avoids a flash of the editor UI before a shared card appears.
 
-- [ ] **Step 1: Update imports**
+- [x] **Step 1: Update imports**
 
 `src/App.tsx:2` currently reads `import { decodeCardHash, createCardUrl, type DecodeResult } from './card/codec'` (from Task 2). Add `routeCardHash`, used by this task:
 
@@ -406,7 +406,7 @@ The trickiest part: `decodeCardHash` is now `async`, but the initial `useState((
 import { decodeCardHash, createCardUrl, routeCardHash, type DecodeResult } from './card/codec'
 ```
 
-- [ ] **Step 2: Replace the `sharedResult` state, effect, and add a generation ref**
+- [x] **Step 2: Replace the `sharedResult` state, effect, and add a generation ref**
 
 Replace lines 17 and 32–36 of `src/App.tsx`:
 
@@ -457,7 +457,7 @@ with:
 
 (`sharedResult === undefined` means "a compact link is pending decode": set directly by the initializer on first mount, and re-armed by `handleHashChange` whenever the hash changes to a new compact link. The second effect does the actual async decode and only applies its result if nothing newer has superseded it.)
 
-- [ ] **Step 3: Add a loading view for the pending state**
+- [x] **Step 3: Add a loading view for the pending state**
 
 Immediately before the existing `if (sharedResult?.ok) {` branch (`App.tsx:38`), add:
 
@@ -480,16 +480,16 @@ Immediately before the existing `if (sharedResult?.ok) {` branch (`App.tsx:38`),
 
 This reuses existing classes only (`shared-shell`, `shared-main`, `eyebrow`) — no new CSS.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `npm run typecheck`
 Expected: PASS with no errors.
 
-- [ ] **Step 5: Manual smoke check**
+- [x] **Step 5: Manual smoke check**
 
 Run: `npm run dev`, open the app, create a card, click Share/copy the link, open it in a new tab. Confirm the card renders (not the loading text, not the editor) and the link contains `#/card/v2/`. Also visit a URL with a garbage hash (`/#/card/v2/garbage`) and confirm the existing "We couldn't open this card" view appears.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/App.tsx
@@ -518,7 +518,7 @@ EOF
 
 The existing tests read `shareLink.inputValue()` immediately after filling fields. Since the share link now populates asynchronously, reads must wait for it via `expect(locator).toHaveValue(...)` (which auto-retries) before calling `.inputValue()`.
 
-- [ ] **Step 1: Update the share-URL test**
+- [x] **Step 1: Update the share-URL test**
 
 Replace the `'generates a share URL and opens the shared card view'` test (`tests/e2e/smoke.spec.ts:72-87`) with:
 
@@ -541,7 +541,7 @@ test('generates a share URL and opens the shared card view', async ({ page }) =>
 })
 ```
 
-- [ ] **Step 2: Add a legacy-link regression test right after it**
+- [x] **Step 2: Add a legacy-link regression test right after it**
 
 Capture one real v1 URL by temporarily running the *current* (pre-change) app, or construct it directly — since this is a fixed historical format, hardcode it. Add this test immediately after the one from Step 1:
 
@@ -560,7 +560,7 @@ test('still opens a card shared with the old (pre-compact) link format', async (
 })
 ```
 
-- [ ] **Step 3: Add a malformed-v2 test right after the existing malformed-v1 test**
+- [x] **Step 3: Add a malformed-v2 test right after the existing malformed-v1 test**
 
 Immediately after `'handles malformed shared URLs without crashing'` (`tests/e2e/smoke.spec.ts:89-93`), add:
 
@@ -572,7 +572,7 @@ test('handles malformed v2 shared URLs without crashing', async ({ page }) => {
 })
 ```
 
-- [ ] **Step 4: Update the font-preservation test's share-link read**
+- [x] **Step 4: Update the font-preservation test's share-link read**
 
 In `'applies an expressive message font and preserves it in shared cards'` (`tests/e2e/smoke.spec.ts:139-156`), replace:
 
@@ -588,12 +588,12 @@ with:
   const url = await shareLink.inputValue()
 ```
 
-- [ ] **Step 5: Run the full e2e suite**
+- [x] **Step 5: Run the full e2e suite**
 
 Run: `npm run test:e2e`
 Expected: all tests pass, including the two new ones and the four modified ones.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/e2e/smoke.spec.ts
@@ -615,31 +615,31 @@ EOF
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Lint**
+- [x] **Step 1: Lint**
 
 Run: `npm run lint`
 Expected: no errors.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 3: Pure-logic + e2e tests**
+- [x] **Step 3: Pure-logic + e2e tests**
 
 Run: `npm test`
 Expected: all tests pass (this repo's `test` script is the same as `test:e2e`, running the full Playwright suite including `codec.spec.ts`, `support.spec.ts`, and `smoke.spec.ts`).
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 Run: `npm run build`
 Expected: builds cleanly with no TypeScript errors.
 
-- [ ] **Step 5: Manual check on a real mobile-width viewport**
+- [x] **Step 5: Manual check on a real mobile-width viewport**
 
 Run: `npm run dev`, open the app in a browser resized to ~375px width. Create a card, confirm the share link looks meaningfully shorter than before, copy it, paste it in a new tab, confirm the card opens correctly with no layout regressions.
 
-- [ ] **Step 6: Update project status doc**
+- [x] **Step 6: Update project status doc**
 
 `docs/AI-PROJECT-STATUS.md` currently lists "Versioned, validated card URLs in the hash" under Current functionality. Update that line to:
 
@@ -648,7 +648,7 @@ Run: `npm run dev`, open the app in a browser resized to ~375px width. Create a 
   native deflate compression; legacy v1 links still decode)
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docs/AI-PROJECT-STATUS.md
