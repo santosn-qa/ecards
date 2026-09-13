@@ -14,6 +14,11 @@ in the main repo for the full privacy boundary.
 4. Copy the returned `id` into `wrangler.toml`'s `kv_namespaces[0].id`.
 5. Edit `ALLOWED_ORIGINS` in `src/index.ts` to include your real production
    domain (the GitHub Pages URL is included by default).
+6. Set the production IP-hashing secret: `npx wrangler secret put IP_HASH_SECRET`
+   (paste any strong random value, e.g. the output of `openssl rand -hex 32`).
+   This keys the HMAC used to hash visitor IPs for the debounce check — it
+   must never be committed to git, which is why it's a secret rather than a
+   `wrangler.toml` value.
 
 ## Deploy
 
@@ -30,6 +35,20 @@ repo's README and `.github/workflows/deploy.yml`) to turn the feature on.
 ```bash
 npm run dev
 ```
+
+`wrangler dev` needs the `IP_HASH_SECRET` binding to be present locally too.
+A `worker/.dev.vars` file (git-ignored, never commit it) already provides a
+placeholder value for this — wrangler loads it automatically. If it's
+missing, recreate it with:
+
+```
+IP_HASH_SECRET=local-dev-secret-change-me
+```
+
+To test a local React dev server (e.g. Vite's default
+`http://localhost:5173`) against this local Worker, temporarily add that
+origin to `ALLOWED_ORIGINS` in `src/index.ts` — later tasks in this plan
+will need to do exactly that.
 
 ## Manual verification (no automated test suite for this Worker)
 
@@ -59,3 +78,6 @@ confirms `1`. Waiting 60+ seconds between calls allows a new increment.
 - The 60-second per-IP debounce is Cloudflare KV's minimum `expirationTtl` —
   it stops accidental double-counts, not determined abuse.
 - This is a feel-good approximate number, not an audited metric.
+- Concurrent increments from different visitors can race (KV has no atomic
+  increment) and may occasionally undercount by one — an accepted tradeoff
+  for a feel-good approximate number, not a bug.

@@ -1,5 +1,6 @@
 export interface Env {
   COUNTER_KV: KVNamespace
+  IP_HASH_SECRET: string
 }
 
 // Replace with the real production origin(s) before deploying. GitHub Pages
@@ -11,10 +12,28 @@ const ALLOWED_ORIGINS = new Set<string>([
 const COUNT_KEY = 'sent_count'
 const DEBOUNCE_TTL_SECONDS = 60 // Cloudflare KV's minimum expirationTtl.
 
-async function hashIp(ip: string): Promise<string> {
-  const data = new TextEncoder().encode(ip)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest))
+// Parses a KV-stored count string, falling back to 0 for anything missing
+// or non-numeric (e.g. corrupted data) so a bad value can never permanently
+// poison the counter.
+function parseCount(raw: string | null): number {
+  if (raw === null) return 0
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+// HMAC-SHA256 keyed with a Worker secret, so the per-IP debounce key can't be
+// reversed via a precomputed table of the (small) IPv4 address space by
+// anyone with read access to KV during the 60-second TTL window.
+async function hashIp(ip: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(ip))
+  return Array.from(new Uint8Array(signature))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, 16)
@@ -27,6 +46,13 @@ function corsHeaders(origin: string | null): Record<string, string> {
     headers['Vary'] = 'Origin'
   }
   return headers
+}
+
+function errorResponse(headers: Record<string, string>): Response {
+  return new Response(JSON.stringify({ error: 'temporarily unavailable' }), {
+    status: 503,
+    headers,
+  })
 }
 
 export default {
@@ -46,30 +72,39 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/count') {
-      const raw = await env.COUNTER_KV.get(COUNT_KEY)
-      const count = raw ? Number(raw) : 0
-      return new Response(JSON.stringify({ count }), { headers })
+      try {
+        const raw = await env.COUNTER_KV.get(COUNT_KEY)
+        return new Response(JSON.stringify({ count: parseCount(raw) }), { headers })
+      } catch (err) {
+        console.error('GET /count failed', err)
+        return errorResponse(headers)
+      }
     }
 
     if (request.method === 'POST' && url.pathname === '/increment') {
-      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
-      const debounceKey = `debounce:${await hashIp(ip)}`
-      const [alreadyRecent, raw] = await Promise.all([
-        env.COUNTER_KV.get(debounceKey),
-        env.COUNTER_KV.get(COUNT_KEY),
-      ])
-      const current = raw ? Number(raw) : 0
+      try {
+        const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+        const debounceKey = `debounce:${await hashIp(ip, env.IP_HASH_SECRET)}`
+        const [alreadyRecent, raw] = await Promise.all([
+          env.COUNTER_KV.get(debounceKey),
+          env.COUNTER_KV.get(COUNT_KEY),
+        ])
+        const current = parseCount(raw)
 
-      if (alreadyRecent) {
-        return new Response(JSON.stringify({ count: current }), { headers })
+        if (alreadyRecent) {
+          return new Response(JSON.stringify({ count: current }), { headers })
+        }
+
+        const next = current + 1
+        await Promise.all([
+          env.COUNTER_KV.put(COUNT_KEY, String(next)),
+          env.COUNTER_KV.put(debounceKey, '1', { expirationTtl: DEBOUNCE_TTL_SECONDS }),
+        ])
+        return new Response(JSON.stringify({ count: next }), { headers })
+      } catch (err) {
+        console.error('POST /increment failed', err)
+        return errorResponse(headers)
       }
-
-      const next = current + 1
-      await Promise.all([
-        env.COUNTER_KV.put(COUNT_KEY, String(next)),
-        env.COUNTER_KV.put(debounceKey, '1', { expirationTtl: DEBOUNCE_TTL_SECONDS }),
-      ])
-      return new Response(JSON.stringify({ count: next }), { headers })
     }
 
     return new Response('Not found', { status: 404, headers })
