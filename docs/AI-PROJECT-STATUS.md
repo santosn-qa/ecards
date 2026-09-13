@@ -22,7 +22,7 @@ Phase 2: shareable cards and local export.
 - Native 1080px PNG export
 - Branded page title and Open Graph/Twitter share-preview metadata
 - WCAG AA-compliant secondary text and primary-button contrast
-- Empty-message confirmation guard on Copy Link/Share Card
+- Empty-message confirmation guard on Copy Link/Share Card/Download Card
 - Typed-draft protection on sample message chips (free browsing when empty,
   confirm-to-replace once the user has typed their own text)
 - Mobile live preview ordered after the message step, not before the design step

@@ -341,6 +341,7 @@ function App() {
   }
 
   async function exportCard() {
+    if (!confirmOrWarnEmptyMessage('Download Card')) return
     setIsExporting(true)
     try {
       await downloadCardPng(draft, selectedTemplate)

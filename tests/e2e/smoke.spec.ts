@@ -375,6 +375,18 @@ test('does not warn about an empty message once one has been written', async ({ 
   await expect(page.getByRole('status')).toHaveText('Link copied!')
 })
 
+test('warns before downloading a card with an empty message, and proceeds on confirmation', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  await expect(page.getByRole('status')).toContainText(/message is empty/i)
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download Card' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/little-hello-birthday-confetti-01\.png/)
+})
+
 test('still opens a card shared with the old (pre-compact) link format', async ({ page }) => {
   const legacyPayload = btoa(JSON.stringify({
     v: 1,
@@ -433,6 +445,7 @@ test('downloaded PNG renders the full-bleed artwork at full fidelity, not a blur
     samplePoint,
   )
 
+  await page.getByRole('button', { name: 'Download Card' }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
@@ -486,6 +499,7 @@ test('live preview does not auto-hyphenate the placeholder message at narrow car
   await expect(previewMessage).toHaveText('Your message will appear here.')
   await expect(previewMessage).toHaveCSS('hyphens', 'none')
 
+  await page.getByRole('button', { name: 'Download Card' }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download Card' }).click()
   const download = await downloadPromise
