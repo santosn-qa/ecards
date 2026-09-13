@@ -10,6 +10,7 @@ Phase 2: shareable cards and local export.
 - Responsive occasion selector and template gallery
 - Eight local placeholder templates with immutable IDs
 - Constrained editor and live preview
+- Static per-occasion sample message chips in the editor
 - Configurable GitHub Pages base path
 - PWA/Workbox build configuration
 - GitHub Pages deployment workflow
