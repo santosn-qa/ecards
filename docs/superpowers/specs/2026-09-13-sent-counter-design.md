@@ -76,10 +76,16 @@ This is a public feel-good number, not an audited metric, so the bar is "stop
 accidental double-counts," not "prevent all fraud":
 
 - On `POST /increment`, the Worker computes a short-lived KV key from the
-  request's `CF-Connecting-IP` (e.g. a truncated hash) with a **2-second TTL**.
-  If that key already exists, the Worker returns the current count *without*
+  request's `CF-Connecting-IP` (a truncated SHA-256 hash) with a **60-second
+  TTL** — Cloudflare KV enforces a hard 60-second minimum on `expirationTtl`,
+  so that's the shortest debounce window the platform allows. If that key
+  already exists, the Worker returns the current count *without*
   incrementing (still a `200`, so the client doesn't need special handling).
-  If it doesn't exist, the Worker sets it (TTL 2s) and increments normally.
+  If it doesn't exist, the Worker sets it (TTL 60s) and increments normally.
+  This means at most one increment per IP per minute — generous enough that a
+  legitimate person sharing and then downloading the same card within a
+  minute will only be counted once, which is an acceptable trade-off for a
+  feel-good number, not a precise one.
 - This key is never logged, never exposed via any endpoint, and expires on
   its own — it exists purely to collapse rapid double-fires (double clicks,
   retries), not to build any kind of visitor record.
