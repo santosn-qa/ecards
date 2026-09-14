@@ -102,3 +102,78 @@ test.describe('sentCounter pure logic', () => {
     }
   })
 })
+
+const COUNTER_ORIGIN = 'http://127.0.0.1:4174'
+
+test.describe('SentCounter in the app', () => {
+  test('renders the fetched count on load', async ({ page }) => {
+    await page.route(`${COUNTER_ORIGIN}/count`, (route) =>
+      route.fulfill({ json: { count: 1234 } }),
+    )
+    await page.goto('/')
+    await expect(page.getByText('1,234 Little Hellos sent so far')).toBeVisible()
+  })
+
+  test('bumps the displayed count immediately after copying the link', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-write'])
+    await page.route(`${COUNTER_ORIGIN}/count`, (route) => route.fulfill({ json: { count: 5 } }))
+    await page.route(`${COUNTER_ORIGIN}/increment`, (route) => route.fulfill({ json: { count: 6 } }))
+    await page.goto('/')
+    await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
+
+    await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
+    await page.getByRole('button', { name: 'Copy Link' }).click()
+
+    await expect(page.getByText('6 Little Hellos sent so far')).toBeVisible()
+  })
+
+  test('bumps the displayed count immediately after downloading the card', async ({ page }) => {
+    await page.route(`${COUNTER_ORIGIN}/count`, (route) => route.fulfill({ json: { count: 5 } }))
+    await page.route(`${COUNTER_ORIGIN}/increment`, (route) => route.fulfill({ json: { count: 6 } }))
+    await page.goto('/')
+    await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
+
+    await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Download Card' }).click()
+    await downloadPromise
+
+    await expect(page.getByText('6 Little Hellos sent so far')).toBeVisible()
+  })
+
+  test('bumps the displayed count immediately after sharing the card', async ({ page }) => {
+    await page.route(`${COUNTER_ORIGIN}/count`, (route) => route.fulfill({ json: { count: 5 } }))
+    await page.route(`${COUNTER_ORIGIN}/increment`, (route) => route.fulfill({ json: { count: 6 } }))
+    await page.addInitScript(() => {
+      // jsdom-free Web Share stub: resolve immediately, like a completed share sheet.
+      Object.defineProperty(window.navigator, 'share', {
+        configurable: true,
+        value: () => Promise.resolve(),
+      })
+    })
+    await page.goto('/')
+    await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
+
+    await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
+    await page.getByRole('button', { name: 'Share Card' }).click()
+
+    await expect(page.getByText('6 Little Hellos sent so far')).toBeVisible()
+  })
+
+  test('stays absent and does not break the card flow when the counter endpoint is unreachable', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-write'])
+    const pageErrors: Error[] = []
+    page.on('pageerror', (error) => pageErrors.push(error))
+    await page.route(`${COUNTER_ORIGIN}/**`, (route) => route.abort())
+
+    await page.goto('/')
+    await expect(page.getByText(/Little Hellos sent so far/)).not.toBeAttached()
+
+    await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
+    await page.getByRole('button', { name: 'Copy Link' }).click()
+    await expect(page.getByRole('status')).toHaveText('Link copied!')
+
+    await expect(page.getByText(/Little Hellos sent so far/)).not.toBeAttached()
+    expect(pageErrors).toEqual([])
+  })
+})
