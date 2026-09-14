@@ -15,6 +15,15 @@ All card content is created and rendered locally in the browser.
   hash as untrusted input and validate every field.
 - **Privacy:** no account, database, analytics, tracking, or card-content API is
   required. The MVP does not persist greeting text to local storage.
+- **Sent counter (one narrow exception):** a single public tagline ("N
+  Little Hellos sent so far") is powered by a small external Cloudflare
+  Worker holding one anonymous integer. This is the one deliberate exception
+  to "no backend" in this document — it never receives card content, names,
+  identifiers, or cookies, only a bare "one more happened" signal. Full
+  scope and privacy boundary: `docs/superpowers/specs/2026-09-13-sent-counter-design.md`.
+  Leaving `VITE_COUNTER_API_URL` unset (the default for local dev and forks)
+  fully disables the feature: no requests, no UI. Worker setup:
+  `worker/README.md`.
 - **Templates:** artwork stays in local application assets and is separate from
   card content. New artwork must receive a new permanent template ID.
 - **Offline:** `vite-plugin-pwa` and Workbox precache the application shell and
