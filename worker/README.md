@@ -27,8 +27,14 @@ npm run deploy
 ```
 
 This prints the Worker's URL (e.g. `https://little-hello-counter.<you>.workers.dev`).
-Set that as `VITE_COUNTER_API_URL` in the main app's build (see the main
-repo's README and `.github/workflows/deploy.yml`) to turn the feature on.
+To turn the feature on for the deployed site, go to the main repo's GitHub
+page → **Settings → Secrets and variables → Actions → Variables** → **New
+repository variable**, name it `VITE_COUNTER_API_URL`, and set its value to
+that Worker URL (no trailing slash). It must be added as a **Variable**, not
+a Secret — `.github/workflows/deploy.yml` reads it via
+`${{ vars.VITE_COUNTER_API_URL }}`. The next push to `main` (or a manual
+re-run of the deploy workflow) will pick it up and the tagline will appear on
+the live site.
 
 ## Local development
 
@@ -81,3 +87,11 @@ confirms `1`. Waiting 60+ seconds between calls allows a new increment.
 - Concurrent increments from different visitors can race (KV has no atomic
   increment) and may occasionally undercount by one — an accepted tradeoff
   for a feel-good approximate number, not a bug.
+- The client optimistically bumps its locally-displayed count by 1 on every
+  successful action (share, copy, download), but the server-side 60-second
+  per-IP debounce may collapse several rapid same-visitor actions into a
+  single real increment. That means the number shown in one session can
+  briefly run ahead of the true server count — e.g. sharing and then
+  downloading the same card within a minute shows +2 locally but only +1 on
+  the server. It self-corrects the next time the page loads and re-fetches
+  the real count; this is an accepted tradeoff, not a bug.

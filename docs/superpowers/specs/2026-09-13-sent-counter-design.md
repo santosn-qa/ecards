@@ -61,7 +61,9 @@ Endpoints:
 
 - `GET /count` → `{ "count": number }`. Reads the current value (defaults to
   `0` if the key doesn't exist yet). No side effects.
-- `POST /increment` → atomically increments the KV value by 1, returns the
+- `POST /increment` → increments the KV value by 1 (a read-then-write, not an
+  atomic compare-and-swap — concurrent requests can race and undercount by
+  one; see the corresponding limitation in `worker/README.md`), returns the
   new `{ "count": number }`. Empty request body; the Worker ignores any body
   content it's sent.
 
@@ -92,6 +94,14 @@ accidental double-counts," not "prevent all fraud":
 - No further rate limiting, CAPTCHA, or fraud detection is in scope. A
   determined script can still inflate the number; that's an accepted
   limitation, called out in `worker/README.md`.
+- This debounce interacts with the client's optimistic bump (see Client
+  section below): the client increments its locally-displayed count on every
+  successful action regardless of what the server does, so if the same
+  visitor triggers two actions within the 60-second window, the
+  locally-displayed count goes up by 2 while the server only really
+  incremented once. The number self-corrects on the visitor's next page load
+  once the real count is re-fetched. Documented as an accepted limitation in
+  `worker/README.md`, not a bug.
 
 ## Client: config, logic, and UI
 
@@ -163,7 +173,7 @@ feature-flag convention (same shape as `SUPPORT_CONFIG.enabled`).
   examples for `GET /count` and `POST /increment`, verifying the debounce).
   The Worker is a small, independent unit; it does not need Playwright
   coverage in the main app's suite.
-- **Main app**, new `tests/e2e/sent-counter.spec.ts`:
+- **Main app**, new `tests/e2e/sentCounter.spec.ts`:
   - **Pure logic** (`sentCounter.ts`), run against a mocked `fetch`:
     - `fetchSentCount` returns the parsed count on a 200 JSON response.
     - Returns `null` on network failure, non-2xx, and malformed JSON.
@@ -188,7 +198,7 @@ feature-flag convention (same shape as `SUPPORT_CONFIG.enabled`).
 ## Out of scope (for this iteration)
 
 - Per-action breakdown (created/downloaded/shared shown separately).
-- Any real anti-fraud/rate-limiting beyond the 2-second debounce.
+- Any real anti-fraud/rate-limiting beyond the 60-second debounce.
 - Any dashboard, historical trend, or time-series view of the count.
 - Counting anything that happens while offline.
 - Any third-party analytics service (Plausible, GA, etc.) — this stays a
