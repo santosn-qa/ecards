@@ -14,6 +14,10 @@ test-results
 playwright-report
 *.local
 
+# Cloudflare Worker (worker/)
+worker/.dev.vars
+worker/.wrangler
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

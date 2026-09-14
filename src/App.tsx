@@ -10,6 +10,8 @@ import { SUPPORT_CONFIG } from './config/support'
 import { readDismissedAt, recordDismissal, shouldShowSupportPrompt } from './support/supportPrompt'
 import { SupportPanel } from './components/SupportPanel'
 import { SupportFooterLink } from './components/SupportFooterLink'
+import { useSentCounter } from './counter/useSentCounter'
+import { SentCounter } from './components/SentCounter'
 import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
@@ -132,6 +134,7 @@ function App() {
   const [confirmingSampleOverwrite, setConfirmingSampleOverwrite] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [showSupportPanel, setShowSupportPanel] = useState(false)
+  const { count: sentCount, bump: bumpSentCounter } = useSentCounter()
   const hasShownSupportPanelRef = useRef(false)
   const [shareUrl, setShareUrl] = useState('')
   const shareUrlGenerationRef = useRef(0)
@@ -311,6 +314,7 @@ function App() {
       await navigator.clipboard.writeText(url)
       setNotice('Link copied!')
       maybeShowSupportPanel()
+      bumpSentCounter()
     } catch {
       setNotice('Copy failed. You can select the link below.')
     }
@@ -324,6 +328,7 @@ function App() {
         await navigator.share({ title: 'A Little Hello card', text: 'Someone made a card for you.', url })
         setNotice('Ready to share!')
         maybeShowSupportPanel()
+        bumpSentCounter()
       } catch {
         setNotice('Sharing was cancelled.')
       }
@@ -339,6 +344,7 @@ function App() {
       await downloadCardPng(draft, selectedTemplate)
       setNotice('Card downloaded!')
       maybeShowSupportPanel()
+      bumpSentCounter()
     } catch {
       setNotice('The card could not be downloaded. Please try again.')
     } finally {
@@ -355,6 +361,7 @@ function App() {
             <p className="eyebrow">A small gesture, made special</p>
             <h1 id="welcome-title">Make someone’s day.</h1>
             <p className="hero-text">Choose a beautiful design, add your words, and share a little hello. No account needed.</p>
+            <SentCounter count={sentCount} />
           </div>
           <div className="hero-sparkles" aria-hidden="true"><span>✦</span><span>✧</span><span>·</span></div>
         </section>
