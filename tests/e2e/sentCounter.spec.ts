@@ -51,6 +51,15 @@ test.describe('sentCounter pure logic', () => {
     }
   })
 
+  test('fetchSentCount returns null when count is present but not a number', async () => {
+    const restore = stubFetch(async () => new Response(JSON.stringify({ count: '42' }), { status: 200 }))
+    try {
+      expect(await fetchSentCount('https://counter.example.test')).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
   test('fetchSentCount returns null when the request rejects (offline/blocked)', async () => {
     const restore = stubFetch(async () => {
       throw new Error('network error')
