@@ -83,6 +83,11 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/increment') {
       try {
+        if (!env.IP_HASH_SECRET) {
+          console.error('POST /increment failed: IP_HASH_SECRET is not configured')
+          return errorResponse(headers)
+        }
+
         const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
         const debounceKey = `debounce:${await hashIp(ip, env.IP_HASH_SECRET)}`
         const [alreadyRecent, raw] = await Promise.all([
