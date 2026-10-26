@@ -78,35 +78,46 @@ function drawArtworkCover(context: CanvasRenderingContext2D, bitmap: ImageBitmap
   context.drawImage(bitmap, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
 }
 
-function wrapMessage(value: string, maxCharacters = 28, maxLines = 5) {
-  return value.split(/\r?\n/).flatMap((paragraph) => {
-    const words = paragraph.split(/\s+/).filter(Boolean)
-    if (!words.length) return ['']
-    const lines: string[] = []
-    let line = ''
-    for (const word of words) {
-      if (line && `${line} ${word}`.length > maxCharacters) {
-        lines.push(line)
-        line = word
-      } else {
-        line = line ? `${line} ${word}` : word
-      }
+// Mirrors the on-screen preview, which collapses newlines and breaks overlong words (overflow-wrap: anywhere).
+function wrapMessage(context: CanvasRenderingContext2D, value: string, maxWidth: number) {
+  const words = value.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (context.measureText(candidate).width <= maxWidth) {
+      line = candidate
+      continue
     }
     if (line) lines.push(line)
-    return lines
-  }).slice(0, maxLines)
+    line = ''
+    for (const character of word) {
+      if (line && context.measureText(line + character).width > maxWidth) {
+        lines.push(line)
+        line = ''
+      }
+      line += character
+    }
+  }
+  if (line) lines.push(line)
+  return lines.length ? lines : ['']
+}
+
+// Picks the largest font size whose wrapped lines fit the message area, so long messages shrink instead of being cut off.
+function fitMessage(context: CanvasRenderingContext2D, value: string, family: string, maxWidth: number, maxHeight: number, maxSize: number, lineHeightRatio: number) {
+  for (let size = maxSize; size > 12; size -= 2) {
+    setCanvasFont(context, 400, size, family)
+    const lines = wrapMessage(context, value, maxWidth)
+    if (lines.length * size * lineHeightRatio <= maxHeight) return { lines, size }
+  }
+  setCanvasFont(context, 400, 12, family)
+  return { lines: wrapMessage(context, value, maxWidth), size: 12 }
 }
 
 export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
   const width = 1080
   const height = 1350
   const isFullBleed = template.artwork.illustrationStyle === 'full-bleed'
-  const maxCharacters = isFullBleed ? 20 : (card.message && card.message.length > 100 ? 34 : 28)
-  const maxLines = isFullBleed ? 9 : 5
-  const messageLines = wrapMessage(card.message || 'Your message will appear here.', maxCharacters, maxLines)
-  const messageSize = isFullBleed
-    ? (messageLines.length > 7 ? 26 : messageLines.length > 5 ? 32 : messageLines.length > 3 ? 38 : 44)
-    : (messageLines.length > 3 ? 56 : 68)
   const messageX = isFullBleed ? 80 : 140
   const to = card.to || 'A little note for you'
   const from = card.from ? `— ${card.from}` : 'With a little love'
@@ -180,8 +191,21 @@ export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
   setCanvasFont(context, isFullBleed ? 600 : 400, isFullBleed ? 26 : 30, supportingFontFamily)
   context.fillText(to, messageX, isFullBleed ? 220 : 390)
 
-  setCanvasFont(context, 400, messageSize, messageFont.family)
-  drawTextLines(context, messageLines, messageX, isFullBleed ? 320 : 640, messageSize * 1.15)
+  // Full-bleed message column matches the preview: 66% content width, 8% left padding, 88% message max-width.
+  const messageMaxWidth = isFullBleed ? 550 : width - (messageX * 2)
+  const messageTop = isFullBleed ? 270 : 590
+  const messageBottom = isFullBleed ? 1150 : 1070
+  const lineHeightRatio = isFullBleed ? 1.26 : 1.15
+  const { lines: messageLines, size: messageSize } = fitMessage(
+    context,
+    card.message || 'Your message will appear here.',
+    messageFont.family,
+    messageMaxWidth,
+    messageBottom - messageTop,
+    isFullBleed ? 44 : 68,
+    lineHeightRatio,
+  )
+  drawTextLines(context, messageLines, messageX, messageTop + messageSize, messageSize * lineHeightRatio)
 
   context.fillStyle = isFullBleed ? messageColor : supportingColor
   setCanvasFont(context, isFullBleed ? 600 : 400, isFullBleed ? 28 : 30, supportingFontFamily)
