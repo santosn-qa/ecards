@@ -1,5 +1,6 @@
 import type { CardDraft, CardTemplate } from '../data/templates'
 import { getMessageFont, type MessageFontId } from '../data/typography'
+import { AI_ART_SCALE } from './CardArtwork'
 import caveatFontUrl from '@fontsource/caveat/files/caveat-latin-400-normal.woff2?url'
 import cormorantFontUrl from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2?url'
 import dancingScriptFontUrl from '@fontsource/dancing-script/files/dancing-script-latin-400-normal.woff2?url'
@@ -121,19 +122,6 @@ function triggerDownload(canvas: HTMLCanvasElement, filename: string) {
   link.click()
 }
 
-/** Draws a cover-cropped image into a box (centred), clipping anything outside it. */
-function drawCoverInto(context: CanvasRenderingContext2D, bitmap: ImageBitmap, x: number, y: number, width: number, height: number) {
-  const scale = Math.max(width / bitmap.width, height / bitmap.height)
-  const drawWidth = bitmap.width * scale
-  const drawHeight = bitmap.height * scale
-  context.save()
-  context.beginPath()
-  context.rect(x, y, width, height)
-  context.clip()
-  context.drawImage(bitmap, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight)
-  context.restore()
-}
-
 /**
  * The "illustration above text" layout used for AI illustrations, mirroring
  * the `.card-layout-ai-top` preview: the image fills the top 45%, and the words
@@ -145,14 +133,16 @@ async function drawAiTopLayout(context: CanvasRenderingContext2D, card: CardDraf
   const panelTop = Math.round(height * 0.45)
   context.fillStyle = template.artwork.backgroundColor
   context.fillRect(0, 0, width, height)
-  drawCoverInto(context, bitmap, 0, 0, width, panelTop)
+  // Same placement and blend as the preview (AiArtwork + .card-layout-ai-top).
+  const artSize = panelTop * AI_ART_SCALE
+  context.save()
+  context.beginPath()
+  context.rect(0, 0, width, panelTop)
+  context.clip()
+  context.globalCompositeOperation = 'multiply'
+  context.drawImage(bitmap, (width - artSize) / 2, (panelTop - artSize) / 2, artSize, artSize)
+  context.restore()
   bitmap.close()
-  const fadeHeight = Math.round(panelTop * 0.14)
-  const fade = context.createLinearGradient(0, panelTop - fadeHeight, 0, panelTop)
-  fade.addColorStop(0, `rgba(${hexToRgb(template.artwork.backgroundColor)},0)`)
-  fade.addColorStop(1, `rgba(${hexToRgb(template.artwork.backgroundColor)},1)`)
-  context.fillStyle = fade
-  context.fillRect(0, panelTop - fadeHeight, width, fadeHeight)
 
   const x = Math.round(width * 0.08)
   const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)

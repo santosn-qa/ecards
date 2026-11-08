@@ -430,8 +430,8 @@ function App() {
             <p className="hero-text">Choose a beautiful design, add your words, and share a little hello. No account needed.</p>
             <SentCounter count={sentCount} />
             {AI_CONFIG.enabled && !showAiPanel && (
-              <button className="secondary-action ai-entry" type="button" onClick={() => setShowAiPanel(true)}>
-                <span aria-hidden="true">✦</span> Create with AI
+              <button className="primary-action ai-entry" type="button" onClick={() => setShowAiPanel(true)}>
+                <span aria-hidden="true">✦</span> Make a card for me
               </button>
             )}
           </div>
@@ -441,12 +441,11 @@ function App() {
           <AiCreatePanel
             apiUrl={AI_CONFIG.apiUrl}
             turnstileSiteKey={AI_CONFIG.turnstileSiteKey}
-            initialOccasion={occasion}
+            occasion={occasion}
             hasTypedMessage={draft.message.trim().length > 0}
             onApply={applyAiCard}
             onApplyMessage={applyAiMessage}
             onApplyIllustration={applyAiIllustration}
-            hasIllustration={aiArt !== null}
             onClose={() => setShowAiPanel(false)}
           />
         )}

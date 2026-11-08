@@ -1,4 +1,4 @@
-import { occasions, styles, type Occasion, type Style } from './catalog'
+import { normalizeStyle, occasions, type Occasion, type Style } from './catalog'
 import { LIMITS, type Validation } from './validate'
 
 export type IllustrationRequest = { turnstileToken: string; occasion: Occasion; style: Style }
@@ -18,42 +18,48 @@ export function validateIllustrationRequest(body: unknown): Validation<Illustrat
   if (typeof input.occasion !== 'string' || !(occasions as readonly string[]).includes(input.occasion)) {
     return { ok: false, reason: 'unsupported occasion' }
   }
-  if (typeof input.style !== 'string' || !(styles as readonly string[]).includes(input.style)) {
-    return { ok: false, reason: 'unsupported style' }
-  }
-  return { ok: true, value: { turnstileToken: token, occasion: input.occasion as Occasion, style: input.style as Style } }
+  const style = normalizeStyle(input.style)
+  if (!style) return { ok: false, reason: 'unsupported style' }
+  return { ok: true, value: { turnstileToken: token, occasion: input.occasion as Occasion, style } }
 }
 
+// Scenes and style follow docs/BIRTHDAY-GARDEN-ART-PROMPT.md, the brief behind
+// Little Hello's own artwork, so AI pictures sit comfortably beside it.
 const motifs: Record<Occasion, string> = {
-  Birthday: 'a celebration cake with candles, a few balloons and scattered confetti',
-  'Thank you': 'a bouquet of fresh flowers tied with a ribbon beside a small wrapped gift',
-  Congratulations: 'two raised glasses of sparkling drink with ribbons and gentle sparkles',
-  Love: 'two coffee cups side by side with small hearts and soft blossoms',
-  'Just because': 'a cheerful patch of wildflowers with a butterfly',
+  Birthday: 'a hand-painted layered birthday cake with imperfect icing and a few candles, surrounded by flowers and loose leaves, a satin ribbon and a few paper confetti shapes',
+  'Thank you': 'a small wrapped gift tied with a satin ribbon beside an envelope and a sprig of flowers and leaves',
+  Congratulations: 'two glasses raised in a toast beside a generous bouquet of flowers, with a loose satin ribbon and a few paper confetti shapes',
+  Love: 'two ceramic mugs side by side beside a small vase of wildflowers, with a soft satin ribbon',
+  'Just because': 'a gentle arrangement of gardenias and garden flowers with a flowing satin ribbon',
 }
 
-const styleDescriptions: Record<Style, string> = {
-  watercolor: 'A soft watercolor painting with gentle washes and visible paper texture',
-  floral: 'A lush botanical floral illustration',
-  pastel: 'A soft pastel illustration with an airy, gentle palette',
-  whimsical: 'A whimsical storybook illustration, playful and dreamy',
-  'hand-drawn': 'A hand-drawn ink and colored pencil illustration',
-  minimalist: 'A minimalist illustration with simple shapes and plenty of calm empty space',
-  elegant: 'An elegant gouache illustration with refined, muted colors',
+/** The three looks, matching the brief's three directions and the app's artwork collections. */
+const looks: Record<Style, string> = {
+  botanical: 'Botanical and elegant: loose botanical leaves and delicate gouache flowers lead the composition, light and airy.',
+  celebration: 'Joyful and celebratory: a little more festive, with paper confetti and a ribbon adding movement, still soft and refined.',
+  painterly: 'Painterly and editorial: richer, deeper colours and confident visible brushstrokes, like a small matte gouache painting, with no glossy highlights.',
 }
+
+const HOUSE_STYLE = [
+  'Premium illustrated stationery, hand-painted in gouache and watercolor on warm cream textured paper.',
+  'Palette: warm terracotta, apricot, butter yellow, muted sage, dusty rose and warm cream, with small accents of deep burgundy.',
+  'Subtle paper grain, brush variation and imperfect painted edges. Calm, warm, grown-up and tasteful.',
+  'The whole background is plain, warm cream paper, not white. Soft, even light with no photographic shading or reflections.',
+  'Not a photograph, not 3D, not flat vector art, not a cartoon. Avoid neon and rainbow colours.',
+].join(' ')
 
 /**
- * The image prompt. The left side is kept light and quiet because the card's
- * existing full-bleed layout places the message there over a soft wash.
- * Text is never requested: the card renders all words separately.
+ * The image prompt. Pictures are shown above the message, cropped to a wide
+ * band across the middle, so the scene is asked to sit there. Text is never
+ * requested: the card renders all words separately.
  */
 export function buildIllustrationPrompt(request: Pick<IllustrationRequest, 'occasion' | 'style'>): string {
   return [
-    `${styleDescriptions[request.style]} of ${motifs[request.occasion]}, as greeting card artwork.`,
-    'Composition: keep the subject fairly small and place it in the right third of the frame, towards the lower right.',
-    'The left two thirds must be calm, plain, light background with nothing in it, because the card message is printed there.',
-    'Warm, friendly and suitable for all ages. Illustration, not a photograph.',
-    'No text, no letters, no words, no numbers, no signature, no watermark, no border, no frame, no people.',
+    `Greeting card artwork of ${motifs[request.occasion]}.`,
+    looks[request.style],
+    HOUSE_STYLE,
+    'Composition: one compact, centred arrangement that fills only the middle half of the frame, with generous empty paper all around it and nothing near the edges.',
+    'No text, no letters, no words, no numbers, no logos, no signature, no watermark, no border, no frame, no people.',
   ].join(' ')
 }
 

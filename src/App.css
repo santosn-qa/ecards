@@ -367,8 +367,8 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .sent-counter span { margin-right: 4px; }
 
 /* Create with AI (optional; only rendered when VITE_AI_API_URL and VITE_TURNSTILE_SITE_KEY are set) */
-.ai-entry { gap: 8px; margin-top: 22px; }
-.ai-entry span { color: #d26f4f; }
+.ai-entry { gap: 10px; min-height: 54px; margin-top: 24px; padding: 0 26px; font-size: 1rem; }
+.ai-entry span { color: #ffd9c7; }
 .ai-panel { margin: 0 0 56px; padding: clamp(22px, 4vw, 34px); border: 1px solid #e8e1dd; border-radius: 14px; background: #fff8f4; }
 .ai-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .ai-panel-heading .eyebrow { margin-bottom: 8px; }
@@ -376,14 +376,11 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .ai-panel-close:hover { border-color: #e1d9d4; color: #b5583d; }
 .ai-panel-intro { max-width: 560px; margin: 14px 0 24px; color: #716965; font-size: .9rem; line-height: 1.6; }
 .ai-form { display: grid; gap: 18px; }
-.ai-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 .ai-form label { display: grid; gap: 8px; color: #514946; font-size: .84rem; font-weight: 600; }
 .ai-form small { color: #786e69; font-size: .72rem; font-weight: 400; }
 .ai-form select, .ai-form input, .ai-form textarea { width: 100%; min-height: 46px; border: 1px solid #ded6d1; border-radius: 8px; outline: none; padding: 11px 13px; background: #fff; color: #27232d; font-weight: 400; }
 .ai-form textarea { resize: vertical; }
 .ai-form select:focus, .ai-form input:focus, .ai-form textarea:focus { border-color: #d26f4f; box-shadow: 0 0 0 3px #d26f4f20; }
-.ai-own-words summary { width: fit-content; min-height: 32px; color: #b5583d; font-size: .82rem; font-weight: 600; cursor: pointer; }
-.ai-own-words[open] summary { margin-bottom: 12px; }
 .ai-privacy { margin: 0; color: #786e69; font-size: .74rem; line-height: 1.55; }
 .ai-privacy span { margin-right: 4px; color: #e77955; }
 .ai-replace-note { margin: 0; color: #9c4527; font-size: .78rem; }
@@ -401,8 +398,8 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 
 /* "Illustration above text" layout, used only for AI illustrations so text never covers the picture. */
 .card-preview.card-layout-ai-top { container-type: inline-size; background: var(--panel-color, #f6f0e4); }
-.card-preview.card-layout-ai-top .preview-art { inset: 0 0 auto 0; height: 45%; }
-.card-preview.card-layout-ai-top .preview-art::after { position: absolute; inset: auto 0 0 0; height: 14%; content: ''; background: linear-gradient(180deg, transparent, var(--panel-color, #f6f0e4)); }
+/* Multiply melts the picture's white or cream background into the card's paper colour. */
+.card-preview.card-layout-ai-top .preview-art { inset: 0 0 auto 0; height: 45%; mix-blend-mode: multiply; }
 /* Anchored to the bottom with a minimum height, so a very long message on a small phone grows the panel upwards over the image's faded edge instead of being cut off. */
 .card-preview.card-layout-ai-top .preview-content { position: absolute; inset: auto 0 0 0; z-index: 1; display: flex; width: 100%; height: auto; min-height: 55%; flex-direction: column; justify-content: flex-start; align-self: stretch; padding: 4.5% 8% 5%; background: var(--panel-color, #f6f0e4); }
 .card-preview.card-layout-ai-top .preview-tagline { margin-bottom: 2.2cqw; font-size: max(9px, 2.1cqw); }
@@ -415,8 +412,41 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .ai-art-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px; margin: 14px 0 0; color: #786e69; font-size: .74rem; text-align: center; }
 .ai-art-note span[aria-hidden] { color: #d26f4f; }
 .ai-art-toggle { min-height: 32px; padding: 0 4px; border: none; background: none; color: #b5583d; font-size: .74rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-.ai-illustration { display: grid; gap: 10px; margin-top: 6px; padding-top: 20px; border-top: 1px solid #ecdcd3; }
-.ai-illustration h3 { margin: 0; color: #4d4643; font-size: .95rem; font-weight: 600; }
-.ai-illustration p { margin: 0; color: #716965; font-size: .8rem; line-height: 1.55; }
-.ai-badge { margin-left: 6px; padding: 2px 7px; border-radius: 100px; background: #fbe3d8; color: #9c4527; font-size: .62rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
 .card-preview.card-layout-ai-top .preview-art::before { display: none; }
+
+/* "Make a card for me": one simple step, sized for older eyes and hands. */
+.ai-simple h2 { font-size: clamp(1.9rem, 4vw, 2.5rem); }
+.ai-simple .ai-panel-intro { max-width: 620px; color: #5f5652; font-size: 1.05rem; line-height: 1.6; }
+.ai-simple .ai-form { gap: 26px; }
+.ai-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
+.ai-choices legend { margin-bottom: 12px; padding: 0; color: #3f3835; font-size: 1.1rem; font-weight: 600; }
+.ai-choice-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ai-choice { min-height: 56px; padding: 0 16px; border: 2px solid #e1d9d4; border-radius: 12px; background: #fff; color: #4d4643; font-size: 1.05rem; font-weight: 600; }
+.ai-choice.is-selected { border-color: #b7502f; background: #fff1ec; color: #9c4527; }
+.ai-look-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ai-look { display: grid; gap: 8px; padding: 8px 8px 12px; border: 2px solid #e1d9d4; border-radius: 14px; background: #fff; color: #4d4643; font-size: 1.02rem; font-weight: 600; text-align: center; }
+.ai-look img { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; object-fit: cover; object-position: center 72%; }
+.ai-look.is-selected { border-color: #b7502f; background: #fff1ec; color: #9c4527; }
+/* Hover only hints, and only with a real mouse, so a tapped choice never looks selected by mistake. */
+@media (hover: hover) {
+  .ai-choice:not(.is-selected):not(:disabled):hover, .ai-look:not(.is-selected):not(:disabled):hover { border-color: #d9a48f; }
+}
+.ai-choice:focus-visible, .ai-look:focus-visible { outline: 3px solid #b7502f; outline-offset: 2px; }
+.ai-choice:disabled, .ai-look:disabled { cursor: not-allowed; opacity: .6; }
+.ai-simple .ai-form label { gap: 10px; color: #3f3835; font-size: 1.05rem; }
+.ai-simple .ai-form input { min-height: 54px; font-size: 1.05rem; }
+.ai-simple .ai-hint { margin: 10px 0 0; font-size: .9rem; }
+.ai-big-button { min-height: 58px; padding: 0 32px; font-size: 1.1rem; }
+.ai-simple .ai-status { color: #3f3835; font-size: 1.05rem; font-weight: 500; }
+.ai-simple .ai-remaining { margin: -14px 0 0; font-size: .92rem; }
+.ai-simple .ai-privacy { font-size: .85rem; }
+.ai-simple .ai-replace-note { font-size: .95rem; }
+/* On narrow screens each look is a full-width row, so names never get squeezed. */
+@media (max-width: 560px) {
+  .ai-look-row { grid-template-columns: 1fr; gap: 10px; }
+  .ai-look { grid-template-columns: 76px 1fr; align-items: center; gap: 14px; padding: 8px 14px 8px 8px; font-size: 1.05rem; text-align: left; }
+  .ai-look img { aspect-ratio: 1; }
+}
+@media (max-width: 420px) {
+  .ai-big-button { width: 100%; }
+}

@@ -1,8 +1,8 @@
 import {
   isMessageFontId,
+  normalizeStyle,
   occasions,
   recipients,
-  styles,
   templatesForOccasion,
   tones,
   type MessageFontId,
@@ -63,7 +63,8 @@ export function validateMessageRequest(body: unknown): Validation<MessageRequest
   if (!oneOf(occasions, input.occasion)) return { ok: false, reason: 'unsupported occasion' }
   if (!oneOf(recipients, input.recipient)) return { ok: false, reason: 'unsupported recipient' }
   if (!oneOf(tones, input.tone)) return { ok: false, reason: 'unsupported tone' }
-  if (!oneOf(styles, input.style)) return { ok: false, reason: 'unsupported style' }
+  const style = normalizeStyle(input.style)
+  if (!style) return { ok: false, reason: 'unsupported style' }
 
   const personalMessage = optionalText(input.personalMessage, LIMITS.personalMessage, 'personalMessage')
   if (!personalMessage.ok) return personalMessage
@@ -77,7 +78,7 @@ export function validateMessageRequest(body: unknown): Validation<MessageRequest
       occasion: input.occasion,
       recipient: input.recipient,
       tone: input.tone,
-      style: input.style,
+      style,
       personalMessage: personalMessage.value,
       extraInstructions: extraInstructions.value,
     },
