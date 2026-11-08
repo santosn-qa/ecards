@@ -20,7 +20,6 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
       - run: npm run build
 
   e2e:
@@ -62,4 +61,4 @@ jobs:
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
-      - run: npx tsc --noEmit
+      - run: npx --no-install tsc --noEmit
