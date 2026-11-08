@@ -81,7 +81,23 @@ npm run typecheck
 npm run build
 ```
 
-## GitHub Pages deployment
+## Deployment
+
+The app is deployed to two places from `main`:
+
+- **Production:** <https://little-hello.ns-apps.workers.dev/> is the Cloudflare
+  Worker `little-hello`. **Cloudflare Workers Builds** builds and deploys it
+  (a Git integration set up in the Cloudflare dashboard, not in this repo), and
+  it appears as the "Workers Builds: little-hello" check on each commit. It
+  builds with the default base path `/`. Build-time `VITE_*` variables for
+  production (for example `VITE_COUNTER_API_URL`) must be set in the dashboard,
+  under the Workers Builds settings for `little-hello`, not as GitHub variables.
+  This repo has no root wrangler config, so adding one could change how
+  Workers Builds deploys the site.
+- **GitHub Pages:** <https://santosn-qa.github.io/ecards/>, deployed by the
+  workflow below.
+
+### GitHub Pages
 
 The workflow in `.github/workflows/deploy.yml` runs checks, builds `dist/` with
 `VITE_BASE_PATH=/<repository-name>/`, and deploys through the official Pages
