@@ -37,9 +37,10 @@ All card content is created and rendered locally in the browser.
   setup: `ai-worker/README.md`.
 - **Templates:** artwork stays in local application assets and is separate from
   card content. New artwork must receive a new permanent template ID.
-- **Offline:** `vite-plugin-pwa` and Workbox precache the application shell and
-  bundled template assets. Card URL decoding and native PNG export run locally
-  in the browser, including after the first visit has been cached.
+- **Offline:** `vite-plugin-pwa` and Workbox precache the application shell
+  (JS, CSS, HTML, SVG). Template artwork (`.jpg`) and fonts (`.woff2`) are not
+  precached, so the app does not advertise offline support. Card URL decoding
+  and native PNG export run locally in the browser.
 
 ### Dependency evaluation
 
