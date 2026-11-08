@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { illustrationBytes, parseSuggestion, toneForRecipient } from '../../src/ai/aiClient'
 import { decodeCardHash } from '../../src/card/codec'
 import { cardTemplates } from '../../src/data/templates'
+import { openEditor } from './helpers'
 
 const AI_ORIGIN = 'http://127.0.0.1:4175'
 const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js**'
@@ -87,13 +88,13 @@ const message = (page: Page) => page.getByRole('textbox', { name: /Your message/
 const preview = (page: Page) => page.getByRole('complementary', { name: 'Live card preview' })
 const aiStatus = (page: Page) => page.locator('.make-for-me').getByRole('status')
 const makeItForMe = (page: Page) => page.getByRole('button', { name: /Make it for me/ })
+const occasionButton = (page: Page, name: string) => page.getByRole('group', { name: 'What would you like to say?' }).getByRole('button', { name, exact: true })
 
-/** Steps 1–3: pick who and what, then "Make it for me", which starts by itself. */
-async function startAi(page: Page, options: { who?: string; what?: string; skipGoto?: boolean } = {}) {
+/** "Make it for me", step 1 (the occasion); step 2 then makes the card by itself. */
+async function startAi(page: Page, options: { what?: string; skipGoto?: boolean } = {}) {
   if (!options.skipGoto) await page.goto('/')
-  await page.getByRole('group', { name: 'Who would you like to send a card to?' }).getByRole('button', { name: options.who ?? 'Mom', exact: true }).click()
-  await page.getByRole('group', { name: 'What would you like to say?' }).getByRole('button', { name: options.what ?? 'Birthday', exact: true }).click()
   await makeItForMe(page).click()
+  await occasionButton(page, options.what ?? 'Birthday').click()
 }
 
 test.describe('Make it for me: client-side checks', () => {
@@ -145,81 +146,76 @@ test.describe('Make it for me: client-side checks', () => {
 })
 
 test.describe('Make it for me in the app', () => {
-  test('makes no AI or Turnstile requests on page load, or while choosing who and what', async ({ page }) => {
+  test('makes no AI or Turnstile requests on page load, or before the occasion is chosen', async ({ page }) => {
     const requests: string[] = []
     page.on('request', (request: Request) => requests.push(request.url()))
     await page.route(TURNSTILE_SCRIPT, (route) => route.fulfill({ contentType: 'text/javascript', body: fakeTurnstileScript }))
     await page.route(`${AI_ORIGIN}/**`, (route) => route.fulfill({ json: {} }))
     await page.goto('/')
-    await page.getByRole('button', { name: 'Mom', exact: true }).click()
-    await page.getByRole('button', { name: 'Birthday', exact: true }).click()
-    await expect(makeItForMe(page)).toBeVisible()
+    await makeItForMe(page).click()
+    await expect(occasionButton(page, 'Birthday')).toBeVisible()
     await page.waitForLoadState('networkidle')
     expect(requests.filter((url) => url.startsWith(AI_ORIGIN) || url.includes('challenges.cloudflare.com'))).toEqual([])
   })
 
-  test('asks only who and what: one click writes the message and adds a picture, with a fresh token for each and no names', async ({ page }) => {
+  test('asks only the occasion, then writes the message and adds a picture, with a fresh token for each and no names', async ({ page }) => {
     const image = await makeJpegBase64(page)
     const ai = await mockAi(page, { status: WITH_PICTURE, illustrate: pictureReply(image) })
-    await page.goto('/')
-    await page.getByRole('textbox', { name: /^To/ }).fill('Priya')
-    await page.getByRole('textbox', { name: /^From/ }).fill('Sam')
-    await startAi(page, { who: 'Mom', what: 'Get well soon', skipGoto: true })
+    await startAi(page, { what: 'Get well soon' })
+    await expect(page.getByRole('heading', { name: 'Your card' })).toBeVisible()
+    await expect(page.getByText('Make it for me · Step 2 of 2')).toBeVisible()
+    // No design or message steps on this path.
+    await expect(page.getByRole('heading', { name: 'Choose a design' })).toHaveCount(0)
+    await expect(page.getByRole('textbox', { name: /Your message/ })).toHaveCount(0)
 
     await expect(aiStatus(page)).toHaveText('Your card is ready below. You can change anything you like.')
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
+    await page.getByRole('textbox', { name: /^To/ }).fill('Priya')
+    await page.getByRole('textbox', { name: /^From/ }).fill('Sam')
+    await expect(preview(page)).toContainText(AI_MESSAGE)
+    await expect(preview(page)).toContainText('Priya')
     await expect(preview(page).locator('.card-preview')).toHaveClass(/card-layout-ai-top/)
     await expect(preview(page).locator('image.source-ai')).toHaveAttribute('href', /^blob:/)
-    await expect(page.getByText('Written with AI help. Edit anything you like.')).toBeVisible()
     await expect(page.getByText('You can make 2 more cards with AI today.')).toBeVisible()
 
     expect(ai.generateBodies).toHaveLength(1)
     const body = ai.generateBodies[0]
     // Get well soon uses the "Just because" design set until it has artwork of its own.
-    expect(body).toMatchObject({ turnstileToken: 'token-1-0', occasion: 'Just because', recipient: 'family', tone: 'sweet', personalMessage: '', extraInstructions: 'Card for: Mom. Occasion: Get well soon.' })
+    expect(body).toMatchObject({ turnstileToken: 'token-1-0', occasion: 'Just because', recipient: 'someone', tone: 'heartfelt', personalMessage: '', extraInstructions: 'Occasion: Get well soon.' })
     expect(['botanical', 'celebration', 'painterly']).toContain(body.style)
     expect(ai.illustrateBodies).toEqual([{ turnstileToken: 'token-reset-1', occasion: 'Just because', style: body.style }])
     expect(JSON.stringify([...ai.generateBodies, ...ai.illustrateBodies])).not.toMatch(/Priya|Sam/)
   })
 
-  test('asks for the occasion first if it hasn’t been chosen', async ({ page }) => {
-    const ai = await mockAi(page)
-    await page.goto('/')
-    await makeItForMe(page).click()
-    await expect(page.getByText('First, choose what you’d like to say in step 02 above.')).toBeVisible()
-    expect(ai.statusCalls()).toBe(0)
-  })
-
-  test('maps partners, coworkers and “Other” to the right tone', async ({ page }) => {
-    const ai = await mockAi(page)
-    await startAi(page, { who: 'Husband / Wife', what: 'Anniversary' })
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
-    expect(ai.generateBodies[0]).toMatchObject({ occasion: 'Love', recipient: 'partner', tone: 'romantic', extraInstructions: 'Card for: Husband / Wife. Occasion: Anniversary.' })
-    await page.unrouteAll({ behavior: 'ignoreErrors' })
-    const second = await mockAi(page)
-    await startAi(page, { who: 'Other', what: 'Thank you' })
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
-    expect(second.generateBodies[0]).toMatchObject({ occasion: 'Thank you', recipient: 'someone', tone: 'heartfelt', extraInstructions: 'Card for: Someone special. Occasion: Thank you.' })
-  })
-
-  test('never starts a new card by itself when who or what changes afterwards', async ({ page }) => {
+  test('Go Back with the same occasion makes nothing new; a different occasion makes a new card', async ({ page }) => {
     const ai = await mockAi(page)
     await startAi(page)
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
-    await page.getByRole('button', { name: 'Dad', exact: true }).click()
-    await page.getByRole('button', { name: 'Thank you', exact: true }).click()
+    await expect(aiStatus(page)).toHaveText(/Your card is ready/)
+    await page.getByRole('button', { name: '← Go Back' }).click()
+    await occasionButton(page, 'Birthday').click()
+    await expect(aiStatus(page)).toHaveText(/Your card is ready/)
     await page.waitForTimeout(500)
     expect(ai.generateBodies).toHaveLength(1)
-    await page.getByRole('button', { name: 'Make a new card' }).click()
+    await page.getByRole('button', { name: '← Go Back' }).click()
+    await occasionButton(page, 'Thank you').click()
     await expect.poll(() => ai.generateBodies.length).toBe(2)
-    expect(ai.generateBodies[1]).toMatchObject({ occasion: 'Thank you', extraInstructions: 'Card for: Dad. Occasion: Thank you.' })
+    expect(ai.generateBodies[1]).toMatchObject({ occasion: 'Thank you', extraInstructions: 'Occasion: Thank you.' })
   })
 
+  test('“Change something” opens the same card in the message step, with ready-made and own-words options', async ({ page }) => {
+    await mockAi(page)
+    await startAi(page)
+    await expect(aiStatus(page)).toHaveText(/Your card is ready/)
+    await page.getByRole('button', { name: 'Change something' }).click()
+    await expect(page.getByRole('heading', { name: 'Your message' })).toBeVisible()
+    await expect(preview(page)).toContainText(AI_MESSAGE)
+    await expect(page.getByText('Written with AI help. Edit anything you like.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Change Message' })).toBeVisible()
+  })
   test('quietly uses a Little Hello design when no picture is left today', async ({ page }) => {
     const ai = await mockAi(page, { status: { enabled: true, signatureRemaining: 3, creativeRemaining: 0 } })
     await startAi(page)
     await expect(aiStatus(page)).toHaveText('Your card is ready below. You can change anything you like.')
-    await expect(page.getByRole('button', { name: 'Choose Party time design' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(preview(page).locator('.card-preview')).toHaveClass(/preview-party-card/)
     await expect(preview(page).locator('.card-layout-ai-top')).toHaveCount(0)
     expect(ai.illustrateBodies).toHaveLength(0)
   })
@@ -229,7 +225,7 @@ test.describe('Make it for me in the app', () => {
       await mockAi(page, { status: WITH_PICTURE, illustrate: () => failure })
       await startAi(page)
       await expect(aiStatus(page)).toHaveText('Your card is ready below. You can change anything you like. We used a Little Hello design for the picture.')
-      await expect(message(page)).toHaveValue(AI_MESSAGE)
+      await expect(preview(page)).toContainText(AI_MESSAGE)
       await page.unrouteAll({ behavior: 'ignoreErrors' })
     }
   })
@@ -244,7 +240,7 @@ test.describe('Make it for me in the app', () => {
     await startAi(page)
     await expect(preview(page).locator('.card-layout-ai-top')).toBeVisible()
     await page.getByRole('button', { name: 'Try another message' }).click()
-    await expect(message(page)).toHaveValue(SECOND_MESSAGE)
+    await expect(preview(page)).toContainText(SECOND_MESSAGE)
     await expect(aiStatus(page)).toHaveText('Here’s a new message. The picture and design stay the same.')
     await expect(preview(page).locator('.card-layout-ai-top')).toBeVisible()
   })
@@ -278,7 +274,7 @@ test.describe('Make it for me in the app', () => {
     expect(picture[0]).toBeLessThan(80)
   })
 
-  test('switches between the picture and the Little Hello design, and drops it when the occasion needs other designs', async ({ page }) => {
+  test('switches between the picture and the Little Hello design', async ({ page }) => {
     const image = await makeJpegBase64(page)
     await mockAi(page, { status: WITH_PICTURE, illustrate: pictureReply(image) })
     await startAi(page)
@@ -288,28 +284,28 @@ test.describe('Make it for me in the app', () => {
     await expect(card).not.toHaveClass(/card-layout-ai-top/)
     await page.getByRole('button', { name: 'Use my AI illustration' }).click()
     await expect(card).toHaveClass(/card-layout-ai-top/)
-    await page.getByRole('button', { name: 'I love you', exact: true }).click()
-    await expect(page.getByRole('button', { name: /Use my AI illustration|Use the Little Hello design/ })).toHaveCount(0)
   })
 
   test('asks before replacing a message the person already wrote', async ({ page }) => {
     const ai = await mockAi(page)
-    await page.goto('/')
+    await openEditor(page)
     await message(page).fill('My own careful words.')
+    // Back to the start: step 3 → 2 → 1 → the two choices.
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '← Go Back' }).click()
     await startAi(page, { skipGoto: true })
     await expect(page.getByText('This will replace the message you wrote. Make a new one for you?')).toBeVisible()
     await page.waitForTimeout(300)
     expect(ai.generateBodies).toHaveLength(0)
-    await expect(message(page)).toHaveValue('My own careful words.')
+    await expect(preview(page)).toContainText('My own careful words.')
     await page.getByRole('button', { name: 'Yes, make it for me' }).click()
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
+    await expect(preview(page)).toContainText(AI_MESSAGE)
   })
 
   test('renders markup in a returned message as plain text, never as HTML', async ({ page }) => {
     const hostile = 'Happy day! <img src=x onerror="window.__xss=1"> <b>bold</b> and more words here.'
     await mockAi(page, { generate: () => ({ json: { message: hostile, templateId: 'birthday-party-01', messageFont: 'caveat', source: 'ai' } }) })
     await startAi(page)
-    await expect(message(page)).toHaveValue(hostile)
+    await expect(preview(page)).toContainText('Happy day!')
     await expect(preview(page).getByText(hostile)).toBeVisible()
     await expect(preview(page).locator('.preview-message img, .preview-message b')).toHaveCount(0)
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
@@ -326,14 +322,13 @@ test.describe('Make it for me in the app', () => {
   for (const [label, reply, expected] of failures) {
     test(`explains in plain words, paints nothing and keeps the editor working when ${label}`, async ({ page }) => {
       const ai = await mockAi(page, { status: WITH_PICTURE, generate: () => reply })
-      await page.goto('/')
-      await message(page).fill('Typed before trying AI.')
-      await startAi(page, { skipGoto: true })
-      await page.getByRole('button', { name: 'Yes, make it for me' }).click()
+      await startAi(page)
       await expect(aiStatus(page)).toHaveText(expected)
       expect(ai.generateBodies).toHaveLength(1)
       expect(ai.illustrateBodies).toHaveLength(0)
-      await expect(message(page)).toHaveValue('Typed before trying AI.')
+      await expect(preview(page)).toContainText('Your message will appear here.')
+      // The card can still be finished by hand.
+      await page.getByRole('button', { name: 'Change something' }).click()
       await message(page).fill('Still works without AI.')
       await expect(preview(page).getByText('Still works without AI.')).toBeVisible()
     })
@@ -370,7 +365,7 @@ test.describe('Make it for me in the app', () => {
     await expect(aiStatus(page)).toHaveText('Writing your message…')
     await page.getByRole('button', { name: 'Stop' }).click()
     await expect(aiStatus(page)).toHaveText('Cancelled. Nothing was changed.')
-    await expect(message(page)).toHaveValue('')
+    await expect(preview(page)).toContainText('Your message will appear here.')
     await page.waitForTimeout(500)
     expect(ai.generateBodies).toHaveLength(1)
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
@@ -383,7 +378,7 @@ test.describe('Make it for me in the app', () => {
     await expect(aiStatus(page)).toHaveText(/Now painting a picture/)
     await page.getByRole('button', { name: 'Stop' }).click()
     await expect(aiStatus(page)).toHaveText('Stopped. Your message is in the card below.')
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
+    await expect(preview(page)).toContainText(AI_MESSAGE)
     await page.waitForTimeout(500)
     expect([ai.generateBodies.length, ai.illustrateBodies.length]).toEqual([1, 1])
   })
@@ -395,16 +390,17 @@ test.describe('Make it for me in the app', () => {
     await startAi(page, { skipGoto: true })
     await expect(aiStatus(page)).toHaveText(/You’re offline/)
     expect(ai.statusCalls()).toBe(0)
+    await page.getByRole('button', { name: 'Change something' }).click()
     await message(page).fill('Offline card.')
     await expect(preview(page).getByText('Offline card.')).toBeVisible()
     await context.setOffline(false)
   })
 
-  test('removes the Turnstile widget when another way of making the card is chosen', async ({ page }) => {
+  test('removes the Turnstile widget when leaving “Make it for me”', async ({ page }) => {
     await mockAi(page)
     await startAi(page)
-    await expect(message(page)).toHaveValue(AI_MESSAGE)
-    await page.getByRole('button', { name: /Write my own/ }).click()
+    await expect(preview(page)).toContainText(AI_MESSAGE)
+    await page.getByRole('button', { name: 'Change something' }).click()
     await expect(page.locator('.make-for-me')).toHaveCount(0)
     expect(await page.evaluate(() => (window as unknown as { __turnstile: { removes: number } }).__turnstile.removes)).toBe(1)
   })
@@ -418,6 +414,7 @@ test.describe('Make it for me in the app', () => {
       await expect(preview(page).locator('.card-layout-ai-top')).toBeVisible()
       await page.getByRole('textbox', { name: /^To/ }).fill('Alexandria Montgomery-Smith')
       await page.getByRole('textbox', { name: /^From/ }).fill('Everyone at the office')
+      await page.getByRole('button', { name: 'Change something' }).click()
       const words = 'Wishing you a wonderful birthday filled with laughter, kindness and all of your favourite things. '.repeat(6)
       const fontOptions = page.locator('.font-option')
       const fontCount = await fontOptions.count()

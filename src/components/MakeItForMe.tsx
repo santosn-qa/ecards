@@ -21,12 +21,13 @@ type MakeItForMeProps = {
   turnstileSiteKey: string
   /** The design set for the chosen occasion: what the Worker designs for. */
   occasion: Occasion
-  /** What the person picked in steps 1 and 2, in their own words, e.g. "Get well soon" for "Mom". */
+  /** The occasion the person picked, in its own words, e.g. "Get well soon". */
   occasionLabel: string
   recipient: AiRecipient
-  recipientLabel: string
   /** True when the editor already holds the user's own words, so we can warn before replacing them. */
   hasTypedMessage: boolean
+  /** False when this who + what already has a card (e.g. after Go Back), so nothing new is made by itself. */
+  autoStart?: boolean
   onApply: (result: AiApplied) => void
   onApplyMessage: (message: string) => void
   /** Called with a validated JPEG; the app shows it from a local blob: URL. */
@@ -39,24 +40,24 @@ type Phase = 'idle' | 'writing' | 'painting'
 const TOKEN_WAIT_MS = 15_000
 
 /**
- * "Make it for me": no questions. It uses who and what from steps 1 and 2,
+ * "Make it for me": no questions. It uses the occasion from step 1,
  * writes the message, then adds a matching picture when one is available
  * today; otherwise the card keeps a Little Hello design. It starts by itself
  * once ready, unless that would replace words the person typed.
  */
-export function MakeItForMe({ apiUrl, turnstileSiteKey, occasion, occasionLabel, recipient, recipientLabel, hasTypedMessage, onApply, onApplyMessage, onApplyIllustration }: MakeItForMeProps) {
+export function MakeItForMe({ apiUrl, turnstileSiteKey, occasion, occasionLabel, recipient, hasTypedMessage, autoStart = true, onApply, onApplyMessage, onApplyIllustration }: MakeItForMeProps) {
   // Each card gets one of the three house looks, so cards vary while staying on theme.
   const [look] = useState(() => aiLooks[Math.floor(Math.random() * aiLooks.length)].id)
   const [confirmedReplace, setConfirmedReplace] = useState(!hasTypedMessage)
-  const startedRef = useRef(false)
+  const startedRef = useRef(!autoStart)
   const [availability, setAvailability] = useState<Availability>('checking')
   const [remaining, setRemaining] = useState<number | null>(null)
   const [creativeRemaining, setCreativeRemaining] = useState(0)
   const [online, setOnline] = useState(() => navigator.onLine)
   const [verificationError, setVerificationError] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
-  const [status, setStatus] = useState('')
-  const [hasResult, setHasResult] = useState(false)
+  const [status, setStatus] = useState(autoStart ? '' : 'Your card is ready below. You can change anything you like.')
+  const [hasResult, setHasResult] = useState(!autoStart)
   const widgetContainerRef = useRef<HTMLDivElement>(null)
   const widgetRef = useRef<{ api: TurnstileApi; id: string } | null>(null)
   const tokenRef = useRef<string | null>(null)
@@ -183,7 +184,7 @@ export function MakeItForMe({ apiUrl, turnstileSiteKey, occasion, occasionLabel,
     }
     const result = await generateAiMessage(
       apiUrl,
-      { turnstileToken: token, occasion, recipient, tone: toneForRecipient(recipient, occasion), style: look, personalMessage: '', extraInstructions: `Card for: ${recipientLabel}. Occasion: ${occasionLabel}.`.slice(0, 200) },
+      { turnstileToken: token, occasion, recipient, tone: toneForRecipient(recipient, occasion), style: look, personalMessage: '', extraInstructions: `Occasion: ${occasionLabel}.`.slice(0, 200) },
       signal,
     )
     if (!result.ok) {
@@ -261,7 +262,7 @@ export function MakeItForMe({ apiUrl, turnstileSiteKey, occasion, occasionLabel,
   return (
     <div className="make-for-me" aria-busy={busy}>
       <p className="make-for-me-summary">
-        <span aria-hidden="true">✦</span> A <strong>{occasionLabel.toLowerCase()}</strong> card for <strong>{recipientLabel.toLowerCase()}</strong>, with a message and a picture made for you.
+        <span aria-hidden="true">✦</span> A <strong>{occasionLabel.toLowerCase()}</strong> card, with a message and a picture made for you. Add who it’s for and your name below.
       </p>
       {!confirmedReplace && (
         <div className="message-card-confirm" role="group" aria-label="Replace your message?">

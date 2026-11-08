@@ -363,7 +363,6 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .sent-counter span { margin-right: 4px; }
 
 /* Steps 01–03: who, what and how. Large, plainly labelled choices for every hand and eye. */
-.hero-start { min-height: 56px; margin-top: 24px; padding: 0 30px; font-size: 1.05rem; }
 .choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .choice-grid-compact { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .choice-grid-compact .choice-button { padding: 10px 8px; overflow-wrap: anywhere; }
@@ -376,13 +375,6 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .choice-search input:focus { border-color: #b7502f; outline: none; box-shadow: 0 0 0 3px #d26f4f30; }
 .choice-group h3 { margin: 0 0 10px; color: #5f5652; font-size: 1rem; font-weight: 600; }
 .choice-empty { margin: 0; color: #5f5652; font-size: 1rem; }
-.how-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.how-option { display: grid; align-content: center; gap: 6px; min-height: 96px; padding: 18px 20px; border: 2px solid #e1d9d4; border-radius: 14px; background: #fff; text-align: left; }
-.how-option-title { color: #3f3835; font-size: 1.15rem; font-weight: 700; }
-.how-option-title span { color: #d26f4f; }
-.how-option-text { color: #5f5652; font-size: 1rem; }
-.how-option.is-selected { border-color: #b7502f; background: #fff1ec; }
-.how-hint { margin: 18px 0 0; color: #3f3835; font-size: 1.05rem; }
 .make-for-me, .message-chooser { display: grid; gap: 16px; margin-top: 22px; padding: clamp(18px, 3vw, 28px); border: 1px solid #e8e1dd; border-radius: 14px; background: #fff8f4; }
 .make-for-me-summary { margin: 0; color: #3f3835; font-size: 1.05rem; line-height: 1.5; }
 .make-for-me-summary span { margin-right: 4px; color: #d26f4f; }
@@ -396,10 +388,10 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .message-chooser-note, .message-chooser-empty { margin: 0; color: #5f5652; font-size: 1rem; }
 .change-message-button { justify-self: start; min-height: 44px; padding: 0 18px; border: 1px solid #d26f4f; border-radius: 100px; background: #fff; color: #9c4527; font-size: .92rem; font-weight: 600; }
 .start-over-button { margin-top: 10px; }
-.choice-button:focus-visible, .how-option:focus-visible, .change-message-button:focus-visible { outline: 3px solid #b7502f; outline-offset: 2px; }
+.choice-button:focus-visible, .mode-option:focus-visible, .change-message-button:focus-visible { outline: 3px solid #b7502f; outline-offset: 2px; }
 /* Hover only hints, and only with a real mouse, so a tapped choice never looks selected by mistake. */
 @media (hover: hover) {
-  .choice-button:not(.is-selected):hover, .how-option:not(.is-selected):hover { border-color: #d9a48f; }
+  .choice-button:not(.is-selected):hover, .mode-option:hover { border-color: #d9a48f; }
 }
 
 /* "Make it for me" */
@@ -417,7 +409,7 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .ai-assisted-note span { margin-right: 4px; }
 @media (max-width: 420px) {
   .choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ai-big-button, .message-card-use, .message-show-more, .message-card-confirm button, .hero-start { width: 100%; }
+  .ai-big-button, .message-card-use, .message-show-more, .message-card-confirm button, .wizard-next, .change-something { width: 100%; }
 }
 
 /* "Illustration above text" layout, used only for AI illustrations so text never covers the picture. */
@@ -437,3 +429,28 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .ai-art-note span[aria-hidden] { color: #d26f4f; }
 .ai-art-toggle { min-height: 32px; padding: 0 4px; border: none; background: none; color: #b5583d; font-size: .74rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .card-preview.card-layout-ai-top .preview-art::before { display: none; }
+
+/* Two ways to make a card, then at most three steps, one at a time. */
+.wizard { scroll-margin-top: 16px; }
+.mode-choice h2 { margin-bottom: 24px; }
+.mode-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.mode-option { display: grid; align-content: start; gap: 10px; min-height: 150px; padding: 26px 26px 28px; border: 2px solid #e1d9d4; border-radius: 16px; background: #fff; text-align: left; }
+.mode-option-title { color: #27232d; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(1.5rem, 3vw, 1.9rem); line-height: 1.1; }
+.mode-option-title span { color: #d26f4f; }
+.mode-option-text { color: #5f5652; font-size: 1.05rem; line-height: 1.5; }
+.wizard-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 18px 0; border-top: 1px solid #e8e1dd; }
+.wizard-progress { flex: 1 1 auto; margin: 0; color: #9c4527; font-size: 1rem; font-weight: 600; text-align: center; }
+.wizard-back, .wizard-start-over { min-height: 48px; font-size: .95rem; }
+.wizard-next { margin-top: 26px; min-height: 56px; padding: 0 30px; font-size: 1.05rem; }
+.change-something { margin: 18px 0 6px; min-height: 52px; font-size: 1rem; }
+.wizard .step-section { border-top: 0; padding-top: 18px; }
+.wizard .workspace { padding-top: 18px; }
+@media (max-width: 520px) {
+  .wizard-progress { order: -1; flex-basis: 100%; }
+  .wizard-back, .wizard-start-over { flex: 1 1 0; }
+}
+.ai-card-step { padding: 18px 0 90px; }
+.ai-card-column { display: grid; gap: 22px; max-width: 560px; margin: 0 auto; }
+.ai-card-column .preview-column { position: static; }
+.ai-card-column .card-preview { max-width: 440px; margin: 0 auto; }
+.ai-card-column .editor-panel { margin-top: 0; padding-top: 22px; }
