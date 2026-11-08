@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { openEditor } from './helpers'
 import { encodeCard } from '../../src/card/codec'
 import { cardTemplates, type CardDraft } from '../../src/data/templates'
 
@@ -65,7 +66,7 @@ test.describe('Download Card PNG', () => {
   })
 
   test('includes the whole long message when downloading from the editor', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'To optional' }).fill('Lola Nita')
     await page.getByRole('textbox', { name: /Your message/ }).fill(longMessage)
     await page.getByRole('textbox', { name: 'From optional' }).fill('Santos Fam')

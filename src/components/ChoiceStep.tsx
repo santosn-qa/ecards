@@ -5,7 +5,8 @@ export type ChoiceGroup = { label: string; items: Choice[] }
 
 type ChoiceStepProps = {
   id: string
-  step: string
+  /** Optional small label above the question; the wizard bar already shows progress. */
+  step?: string
   title: string
   hint?: string
   popular: Choice[]
@@ -41,7 +42,7 @@ export function ChoiceStep({ id, step, title, hint, popular, groups, selectedId,
   return (
     <section className="step-section choice-step" aria-labelledby={`${id}-title`} id={id}>
       <div className="section-heading">
-        <div><p className="step-label">{step}</p><h2 id={`${id}-title`}>{title}</h2></div>
+        <div>{step && <p className="step-label">{step}</p>}<h2 id={`${id}-title`}>{title}</h2></div>
         {hint && <span className="section-hint">{hint}</span>}
       </div>
       <div className="choice-grid" role="group" aria-labelledby={`${id}-title`}>

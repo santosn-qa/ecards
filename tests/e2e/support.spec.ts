@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openEditor } from './helpers'
 import {
   SUPPORT_DISMISS_STORAGE_KEY,
   readDismissedAt,
@@ -51,7 +52,7 @@ test.describe('supportPrompt pure logic', () => {
 
 test.describe('support panel and footer link', () => {
   test('shows the support panel after a successful download', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Card' }).click()
@@ -62,7 +63,7 @@ test.describe('support panel and footer link', () => {
 
   test('shows the support panel after successfully copying the share link', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-write'])
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
     await page.getByRole('button', { name: 'Copy Link' }).click()
 
@@ -71,7 +72,7 @@ test.describe('support panel and footer link', () => {
   })
 
   test('the support CTA opens the configured Ko-fi URL safely in a new tab', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Card' }).click()
@@ -85,7 +86,7 @@ test.describe('support panel and footer link', () => {
   })
 
   test('dismissing the panel hides it and prevents it reappearing on the next visit', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Card' }).click()
@@ -97,6 +98,7 @@ test.describe('support panel and footer link', () => {
     await expect(panel).toBeHidden()
 
     await page.reload()
+    await openEditor(page, { goto: false })
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('Another card worth keeping.')
     const secondDownload = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Card' }).click()
@@ -106,7 +108,7 @@ test.describe('support panel and footer link', () => {
   })
 
   test('reshows the support panel once the 7-day suppression window has elapsed', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await page.evaluate((key) => {
       const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000
       localStorage.setItem(key, String(eightDaysAgo))
@@ -121,7 +123,7 @@ test.describe('support panel and footer link', () => {
   })
 
   test('shows the footer link on the editor, shared-success, and shared-error views', async ({ page }) => {
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Support Little Hello' })).toBeVisible()
 
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('Happy birthday!')
@@ -141,7 +143,7 @@ test.describe('support panel and footer link', () => {
       hasTouch: true,
     })
     const page = await context.newPage()
-    await page.goto('/')
+    await openEditor(page)
     await page.getByRole('textbox', { name: 'Your message 0/500' }).fill('A card worth keeping.')
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Card' }).click()

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openEditor } from './helpers'
 import { fetchSentCount, incrementSentCounter } from '../../src/counter/sentCounter'
 
 function stubFetch(impl: typeof fetch) {
@@ -110,7 +111,7 @@ test.describe('SentCounter in the app', () => {
     await page.route(`${COUNTER_ORIGIN}/count`, (route) =>
       route.fulfill({ json: { count: 1234 } }),
     )
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByText('1,234 Little Hellos sent so far')).toBeVisible()
   })
 
@@ -118,7 +119,7 @@ test.describe('SentCounter in the app', () => {
     await context.grantPermissions(['clipboard-write'])
     await page.route(`${COUNTER_ORIGIN}/count`, (route) => route.fulfill({ json: { count: 5 } }))
     await page.route(`${COUNTER_ORIGIN}/increment`, (route) => route.fulfill({ json: { count: 6 } }))
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
 
     await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
@@ -130,7 +131,7 @@ test.describe('SentCounter in the app', () => {
   test('bumps the displayed count immediately after downloading the card', async ({ page }) => {
     await page.route(`${COUNTER_ORIGIN}/count`, (route) => route.fulfill({ json: { count: 5 } }))
     await page.route(`${COUNTER_ORIGIN}/increment`, (route) => route.fulfill({ json: { count: 6 } }))
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
 
     await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
@@ -151,7 +152,7 @@ test.describe('SentCounter in the app', () => {
         value: () => Promise.resolve(),
       })
     })
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByText('5 Little Hellos sent so far')).toBeVisible()
 
     await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
@@ -166,7 +167,7 @@ test.describe('SentCounter in the app', () => {
     page.on('pageerror', (error) => pageErrors.push(error))
     await page.route(`${COUNTER_ORIGIN}/**`, (route) => route.abort())
 
-    await page.goto('/')
+    await openEditor(page)
     await expect(page.getByText(/Little Hellos sent so far/)).not.toBeAttached()
 
     await page.getByRole('textbox', { name: /Your message/ }).fill('A card worth keeping.')
