@@ -47,3 +47,16 @@ export function CardArtwork({ template }: CardArtworkProps) {
   if (template.collection === 'celebration') return <CelebrationArtwork template={template} />
   return <ArtisticArtwork template={template} />
 }
+
+/**
+ * An AI-generated illustration for the "illustration above text" layout. It is
+ * always a local blob: URL created from a validated JPEG, centre-cropped to fill
+ * the top of the card, and never has words drawn into it.
+ */
+export function AiArtwork({ url }: { url: string }) {
+  return (
+    <svg className="card-artwork artwork-ai" viewBox="0 0 600 338" preserveAspectRatio="xMidYMid slice">
+      <image className="source-art source-ai" href={url} x="0" y="0" width="600" height="338" preserveAspectRatio="xMidYMid slice" />
+    </svg>
+  )
+}

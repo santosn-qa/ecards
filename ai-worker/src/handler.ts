@@ -1,16 +1,19 @@
 import type { AppConfig } from './config'
 import { pickMessageFont, pickTemplateId } from './designPicker'
-import { textNeurons } from './neurons'
+import { buildIllustrationPrompt, validateIllustrationOutput, validateIllustrationRequest } from './image'
+import { imageNeurons, textNeurons } from './neurons'
 import { buildCardTextPrompt, cardTextJsonSchema } from './prompt'
-import type { TextGeneration, TextProvider } from './providers'
+import type { ImageGeneration, ImageProvider, TextGeneration, TextProvider } from './providers'
 import type { Mode, QuotaStatus, Reservation, ReserveResult } from './quota'
 import type { TurnstileOutcome } from './turnstile'
 import { validateGeneratedCardText, validateMessageRequest, type MessageRequest } from './validate'
 
 export const MAX_BODY_BYTES = 8 * 1024
 export const TEXT_TIMEOUT_MS = 20_000
+export const IMAGE_TIMEOUT_MS = 40_000
 /** One original attempt plus at most one controlled retry per user action. */
 export const MAX_TEXT_ATTEMPTS = 2
+export const MAX_IMAGE_ATTEMPTS = 2
 
 /** The quota operations the handler needs; in production these are RPC calls to the QuotaGuard Durable Object. */
 export interface QuotaClient {
@@ -23,10 +26,12 @@ export type HandlerDeps = {
   config: AppConfig
   quota: QuotaClient
   textProvider: TextProvider
+  imageProvider: ImageProvider
   verifyTurnstile: (token: string, remoteIp: string | undefined) => Promise<TurnstileOutcome>
   hashVisitor: (ip: string) => Promise<string>
   now?: () => number
   textTimeoutMs?: number
+  imageTimeoutMs?: number
 }
 
 export type ErrorCode =
@@ -86,24 +91,25 @@ async function readJsonBody(request: Request): Promise<unknown | undefined> {
   }
 }
 
-/** Calls the provider, giving up after `timeoutMs` even if the provider ignores the abort signal. */
-async function generateWithTimeout(provider: TextProvider, request: MessageRequest, timeoutMs: number): Promise<TextGeneration> {
+/** Runs a provider call, giving up after `timeoutMs` even if the provider ignores the abort signal. */
+async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> {
   const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout> | null = null
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       controller.abort()
-      reject(new Error('text generation timed out'))
+      reject(new Error('generation timed out'))
     }, timeoutMs)
   })
   try {
-    return await Promise.race([
-      provider.generate(buildCardTextPrompt(request), cardTextJsonSchema(request), controller.signal),
-      timeout,
-    ])
+    return await Promise.race([run(controller.signal), timeout])
   } finally {
     clearTimeout(timer)
   }
+}
+
+function generateWithTimeout(provider: TextProvider, request: MessageRequest, timeoutMs: number): Promise<TextGeneration> {
+  return withTimeout((signal) => provider.generate(buildCardTextPrompt(request), cardTextJsonSchema(request), signal), timeoutMs)
 }
 
 async function handleGenerateMessage(request: Request, deps: HandlerDeps, headers: Record<string, string>): Promise<Response> {
@@ -196,6 +202,66 @@ async function handleGenerateMessage(request: Request, deps: HandlerDeps, header
   return error('generation_failed', headers)
 }
 
+async function handleGenerateIllustration(request: Request, deps: HandlerDeps, headers: Record<string, string>): Promise<Response> {
+  const { config } = deps
+  const now = deps.now ?? Date.now
+  if (!config.aiEnabled) return error('ai_disabled', headers)
+  if (!config.ipHashSecret) {
+    console.error('generate/illustration refused: IP_HASH_SECRET is not configured')
+    return error('ai_disabled', headers)
+  }
+
+  const body = await readJsonBody(request)
+  if (body === undefined) return error('invalid_request', headers)
+  const validation = validateIllustrationRequest(body)
+  if (!validation.ok) return error('invalid_request', headers)
+  const input = validation.value
+
+  const ip = request.headers.get('CF-Connecting-IP') ?? undefined
+  const turnstile = await deps.verifyTurnstile(input.turnstileToken, ip)
+  if (!turnstile.ok) {
+    return error(turnstile.reason === 'unavailable' ? 'verification_unavailable' : 'verification_failed', headers)
+  }
+
+  const visitor = await deps.hashVisitor(ip ?? 'unknown')
+  let reserved = await deps.quota.reserve(visitor, 'creative', now())
+  if (!reserved.ok) {
+    return reserved.error === 'rate_limited'
+      ? error('rate_limited', headers, { retryAfterSeconds: reserved.retryAfterSeconds })
+      : error(reserved.error, headers)
+  }
+
+  const prompt = buildIllustrationPrompt(input)
+  for (let attempt = 1; attempt <= MAX_IMAGE_ATTEMPTS; attempt++) {
+    let generation: ImageGeneration | undefined
+    try {
+      generation = await withTimeout((signal) => deps.imageProvider.generate(prompt, signal), deps.imageTimeoutMs ?? IMAGE_TIMEOUT_MS)
+    } catch (err) {
+      console.error('generate/illustration provider error', { attempt, kind: err instanceof Error ? err.name : 'unknown' })
+    }
+
+    const output = generation ? validateIllustrationOutput(generation.raw) : undefined
+    // Prefer the Neurons Workers AI reported; otherwise price the image we actually got.
+    const actual = generation?.reportedNeurons !== undefined
+      ? Math.ceil(generation.reportedNeurons)
+      : output?.ok ? imageNeurons(output.value.width, output.value.height, generation?.steps ?? 0) : null
+    await deps.quota.settle(reserved.reservation, actual)
+    console.log('generate/illustration usage', { attempt, neurons: actual, reserved: reserved.reservation.neurons, bytes: output?.ok ? output.value.bytes : null })
+
+    if (output?.ok) {
+      return json({ image: output.value.base64, mimeType: 'image/jpeg', width: output.value.width, height: output.value.height }, 200, headers)
+    }
+    if (output && !output.ok) console.error('generate/illustration rejected model output', { attempt, reason: output.reason })
+
+    if (attempt < MAX_IMAGE_ATTEMPTS) {
+      const retry = await deps.quota.reserve(visitor, 'creative', now(), false)
+      if (!retry.ok) break
+      reserved = retry
+    }
+  }
+  return error('generation_failed', headers)
+}
+
 async function handleStatus(request: Request, deps: HandlerDeps, headers: Record<string, string>): Promise<Response> {
   const { config } = deps
   if (!config.aiEnabled || !config.ipHashSecret) {
@@ -207,8 +273,7 @@ async function handleStatus(request: Request, deps: HandlerDeps, headers: Record
     {
       enabled: true,
       signatureRemaining: status.signatureRemaining,
-      // Creative mode (image generation) arrives in Milestone 5.
-      creativeRemaining: 0,
+      creativeRemaining: status.creativeRemaining,
     },
     200,
     headers,
@@ -239,6 +304,7 @@ export async function handleRequest(request: Request, deps: HandlerDeps): Promis
   try {
     if (request.method === 'GET' && pathname === '/v1/status') return await handleStatus(request, deps, headers)
     if (request.method === 'POST' && pathname === '/v1/generate/message') return await handleGenerateMessage(request, deps, headers)
+    if (request.method === 'POST' && pathname === '/v1/generate/illustration') return await handleGenerateIllustration(request, deps, headers)
   } catch (err) {
     console.error('request failed', { path: pathname, kind: err instanceof Error ? err.name : 'unknown' })
     return error('generation_failed', headers)

@@ -31,7 +31,11 @@ SIGNATURE_PER_VISITOR_PER_DAY = "3"
 CREATIVE_PER_VISITOR_PER_DAY = "1"
 VISITOR_COOLDOWN_SECONDS = "20"
 TEXT_RESERVE_NEURONS = "80"
-IMAGE_RESERVE_NEURONS = "150"
+# A 1024x1024 flux-1-schnell image at 4 steps costs 172.8 Neurons.
+IMAGE_RESERVE_NEURONS = "180"
+# Share of the daily cap images may use (0.5 of 8,000 is about 23 images a day),
+# so illustrations can never use up the budget for text messages.
+CREATIVE_BUDGET_FRACTION = "0.5"
 
 # Secrets (set with `npx wrangler secret put <NAME>`, never committed):
 #   IP_HASH_SECRET        - HMAC key used to hash visitor IPs

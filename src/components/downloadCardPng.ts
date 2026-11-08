@@ -114,7 +114,91 @@ function fitMessage(context: CanvasRenderingContext2D, value: string, family: st
   return { lines: wrapMessage(context, value, maxWidth), size: 12 }
 }
 
-export async function downloadCardPng(card: CardDraft, template: CardTemplate) {
+function triggerDownload(canvas: HTMLCanvasElement, filename: string) {
+  const link = document.createElement('a')
+  link.download = filename
+  link.href = canvas.toDataURL('image/png')
+  link.click()
+}
+
+/** Draws a cover-cropped image into a box (centred), clipping anything outside it. */
+function drawCoverInto(context: CanvasRenderingContext2D, bitmap: ImageBitmap, x: number, y: number, width: number, height: number) {
+  const scale = Math.max(width / bitmap.width, height / bitmap.height)
+  const drawWidth = bitmap.width * scale
+  const drawHeight = bitmap.height * scale
+  context.save()
+  context.beginPath()
+  context.rect(x, y, width, height)
+  context.clip()
+  context.drawImage(bitmap, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight)
+  context.restore()
+}
+
+/**
+ * The "illustration above text" layout used for AI illustrations, mirroring
+ * the `.card-layout-ai-top` preview: the image fills the top 45%, and the words
+ * sit on a solid panel below, so text never covers the picture. The message
+ * shrinks to fit instead of being cut off.
+ */
+async function drawAiTopLayout(context: CanvasRenderingContext2D, card: CardDraft, template: CardTemplate, artworkUrl: string, width: number, height: number) {
+  const bitmap = await loadArtworkBitmap(artworkUrl)
+  const panelTop = Math.round(height * 0.45)
+  context.fillStyle = template.artwork.backgroundColor
+  context.fillRect(0, 0, width, height)
+  drawCoverInto(context, bitmap, 0, 0, width, panelTop)
+  bitmap.close()
+  const fadeHeight = Math.round(panelTop * 0.14)
+  const fade = context.createLinearGradient(0, panelTop - fadeHeight, 0, panelTop)
+  fade.addColorStop(0, `rgba(${hexToRgb(template.artwork.backgroundColor)},0)`)
+  fade.addColorStop(1, `rgba(${hexToRgb(template.artwork.backgroundColor)},1)`)
+  context.fillStyle = fade
+  context.fillRect(0, panelTop - fadeHeight, width, fadeHeight)
+
+  const x = Math.round(width * 0.08)
+  const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)
+  context.textBaseline = 'alphabetic'
+  context.fillStyle = template.artwork.supportingTextColor
+  context.globalAlpha = 0.82
+  setCanvasFont(context, 400, 22, supportingFontFamily)
+  drawTrackedText(context, template.tagline.toUpperCase(), x, panelTop + 70, 22 * 0.12)
+  context.globalAlpha = 1
+  context.fillStyle = template.artwork.supportingTextColor
+  setCanvasFont(context, 400, 30, supportingFontFamily)
+  context.fillText(card.to || 'A little note for you', x, panelTop + 122)
+
+  const messageTop = panelTop + 150
+  const messageBottom = height - 130
+  const lineHeightRatio = 1.22
+  context.fillStyle = template.artwork.messageColor
+  const { lines, size } = fitMessage(context, card.message || 'Your message will appear here.', messageFont.family, width - x * 2, messageBottom - messageTop, 60, lineHeightRatio)
+  drawTextLines(context, lines, x, messageTop + size, size * lineHeightRatio)
+
+  context.fillStyle = template.artwork.supportingTextColor
+  setCanvasFont(context, 600, 30, supportingFontFamily)
+  context.fillText(card.from ? `— ${card.from}` : 'With a little love', x, height - 70)
+}
+
+export type DownloadOptions = {
+  /** A local blob: URL for an AI illustration; switches to the "illustration above text" layout. */
+  artworkUrl?: string
+}
+
+export async function downloadCardPng(card: CardDraft, template: CardTemplate, options: DownloadOptions = {}) {
+  if (options.artworkUrl) {
+    const width = 1080
+    const height = 1350
+    const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)
+    await ensureExportFontLoaded(messageFont.id)
+    await document.fonts.ready
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Canvas is unavailable')
+    await drawAiTopLayout(context, card, template, options.artworkUrl, width, height)
+    triggerDownload(canvas, `little-hello-${template.id}-ai.png`)
+    return
+  }
   const width = 1080
   const height = 1350
   const isFullBleed = template.artwork.illustrationStyle === 'full-bleed'

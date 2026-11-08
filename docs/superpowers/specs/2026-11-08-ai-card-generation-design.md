@@ -74,14 +74,18 @@ Browser (Create with AI panel)
   `temperature: 0.8`. JSON mode is not guaranteed, so output is always
   validated (below).
 - **Image (Creative, Milestone 5):** `@cf/black-forest-labs/flux-1-schnell`,
-  4 steps, prompt built server-side only.
+  4 steps, prompt built server-side only. It has no width or height inputs and
+  returned 1024×1024 baseline JPEGs (150–370 KB) in 2.4–3.3 s in every real call.
 - The provider sits behind a `TextProvider` / `ImageProvider` interface, so
   swapping it never touches the renderer.
 - **Neuron accounting** uses the published per-model rates (pricing page,
   updated 2026-10-20): 70B text is 26,668 per M input and 204,805 per M output
-  tokens. flux-1-schnell is 4.8 per 512×512 tile plus 9.6 per step. Text cost
-  is computed from the returned `usage`; image cost from output dimensions.
-  Rates live in one config table.
+  tokens. flux-1-schnell is 4.8 per 512×512 tile plus 9.6 per step **for each
+  tile**: a 1024×1024 image at 4 steps is 4 × (4.8 + 4 × 9.6) = **172.8
+  Neurons**. That matches the `usage.neurons` Workers AI reported in every real
+  call. Workers AI reports `usage.neurons` for each call, and the Worker uses
+  that figure when present, falling back to the rate table. Rates live in one
+  config table (`ai-worker/src/neurons.ts`).
 - **Measured cost (Milestone 3, 2026-11-08):** 22 real calls with the final
   prompt took 564–641 prompt tokens and 47–85 output tokens, which is **26–34
   Neurons per message (about 30 on average)**. At the 8,000 cap that's roughly
@@ -104,7 +108,8 @@ read-modify-write is safe.
 | `CREATIVE_PER_VISITOR_PER_DAY` | 1 | |
 | `VISITOR_COOLDOWN_SECONDS` | 20 | between any two generations |
 | `TEXT_RESERVE_NEURONS` | 80 | covers the worst case (~650 prompt + 250 output tokens ≈ 68) |
-| `IMAGE_RESERVE_NEURONS` | 150 | worst-case pre-reservation |
+| `IMAGE_RESERVE_NEURONS` | 180 | covers one 1024×1024 image (172.8) |
+| `CREATIVE_BUDGET_FRACTION` | 0.5 | images may use at most half the cap (4,000, about 23 images a day), so they can never starve text |
 
 Flow:
 
@@ -178,12 +183,42 @@ Success:
 ### `POST /v1/generate/illustration` (Milestone 5)
 
 Request: `turnstileToken`, `occasion`, `style`. **No free text goes into image
-prompts**, to keep image content safe. Response: `{ image: <base64 JPEG>,
-width, height }`. The worker validates JPEG magic bytes, decoded size of at
-most 1.5 MB, dimensions of at least 512 px and a supported aspect ratio, and
-that the image isn't empty. The image appears in the preview and the PNG
-download only. The share link uses the chosen curated template, and the UI
-says so before generating.
+prompts**, to keep image content safe; any other fields are ignored. The
+prompt is fixed per occasion and style, asks for an illustration (not a
+photograph) and explicitly for no text, letters, numbers, signatures,
+watermarks or people. Response: `{ image: <base64 JPEG>, mimeType:
+"image/jpeg", width, height }`.
+
+The Worker checks the image before returning it:
+- base64 only, and a decoded size of 15 KB–2 MB (very small files are blank
+  or failed)
+- JPEG start and end markers present, so the file isn't truncated
+- a start-of-frame header giving 512–2048 px per side and an aspect ratio
+  between 1:2 and 2:1
+
+One retry on a failed or invalid image, using global budget only. The
+browser repeats the marker checks, decodes the image with `createImageBitmap`
+and shows it only from a local `blob:` URL.
+
+**Layout.** Real outputs ignore composition instructions about half the
+time, often centring the subject, so AI art never goes behind text. It uses
+the "illustration above text" layout (`.card-layout-ai-top`):
+- The image fills the top 45%, centre-cropped and fading into the template's
+  paper colour.
+- The words sit on a solid panel below. The panel is anchored to the bottom
+  with a minimum height of 55%, so on the smallest phones a 500-character
+  message grows the panel upwards instead of being cut off.
+- The PNG export draws the same layout, shrinking the message to fit.
+- A browser test checks 120-, 200- and 500-character messages in all 8 fonts
+  at 320, 360, 768 and 1280 px for clipping, overlap and a minimum font size
+  of 10px.
+
+The image appears only in the preview and the downloaded PNG. Share links
+keep the chosen template; the panel says so before generating, and the Copy
+and Share notices say so again. A note under the preview labels the art as
+AI-generated and offers "Use the Little Hello design". Picking a design
+switches back to that design's art, and changing the occasion discards the
+illustration.
 
 | Code | HTTP | Meaning |
 |---|---|---|

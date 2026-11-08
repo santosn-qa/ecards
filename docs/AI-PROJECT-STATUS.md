@@ -31,8 +31,10 @@ Phase 2: shareable cards and local export.
 - Character counters on the To/From fields
 - Optional "Create with AI" panel (hidden unless `VITE_AI_API_URL` and
   `VITE_TURNSTILE_SITE_KEY` are set): suggests a message, design and font via
-  the separate `ai-worker/`, then fills the normal editor. Text only so far;
-  Creative-mode illustrations are a later milestone.
+  the separate `ai-worker/`, then fills the normal editor. It can also create
+  one original AI illustration per day, shown in an "illustration above text"
+  layout in the preview and downloaded PNG only (share links keep the
+  template).
 
 ## Known issues and deferred work
 

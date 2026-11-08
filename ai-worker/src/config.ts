@@ -10,6 +10,7 @@ export type RawConfigEnv = {
   VISITOR_COOLDOWN_SECONDS?: string
   TEXT_RESERVE_NEURONS?: string
   IMAGE_RESERVE_NEURONS?: string
+  CREATIVE_BUDGET_FRACTION?: string
   IP_HASH_SECRET?: string
   TURNSTILE_SECRET_KEY?: string
 }
@@ -17,6 +18,8 @@ export type RawConfigEnv = {
 export type QuotaConfig = {
   /** Neurons per UTC day this Worker may spend: allowance x fraction, floored. */
   dailyNeuronCap: number
+  /** The part of dailyNeuronCap images may use, so illustrations can never starve text messages. */
+  creativeNeuronCap: number
   signaturePerVisitorPerDay: number
   creativePerVisitorPerDay: number
   cooldownSeconds: number
@@ -61,11 +64,12 @@ export function parseConfig(env: RawConfigEnv): AppConfig {
     turnstileSecretKey: env.TURNSTILE_SECRET_KEY ?? '',
     quota: {
       dailyNeuronCap: Math.floor(allowance * fraction),
+      creativeNeuronCap: Math.floor(allowance * fraction * Math.min(number(env.CREATIVE_BUDGET_FRACTION, 0.5), 1)),
       signaturePerVisitorPerDay: Math.floor(number(env.SIGNATURE_PER_VISITOR_PER_DAY, 3)),
       creativePerVisitorPerDay: Math.floor(number(env.CREATIVE_PER_VISITOR_PER_DAY, 1)),
       cooldownSeconds: number(env.VISITOR_COOLDOWN_SECONDS, 20),
       textReserveNeurons: number(env.TEXT_RESERVE_NEURONS, 80),
-      imageReserveNeurons: number(env.IMAGE_RESERVE_NEURONS, 150),
+      imageReserveNeurons: number(env.IMAGE_RESERVE_NEURONS, 180),
     },
   }
 }

@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test'
 import { parseConfig, type AppConfig } from '../../ai-worker/src/config'
 import { pickMessageFont, pickTemplateId } from '../../ai-worker/src/designPicker'
 import { handleRequest, MAX_BODY_BYTES, type HandlerDeps } from '../../ai-worker/src/handler'
-import { textNeurons, TEXT_MODEL } from '../../ai-worker/src/neurons'
+import { buildIllustrationPrompt, jpegDimensions, validateIllustrationOutput, validateIllustrationRequest } from '../../ai-worker/src/image'
+import { imageNeurons, IMAGE_MODEL, IMAGE_STEPS, textNeurons, TEXT_MODEL } from '../../ai-worker/src/neurons'
 import { buildCardTextPrompt } from '../../ai-worker/src/prompt'
-import type { TextGeneration, TextProvider } from '../../ai-worker/src/providers'
+import { readUsage, type ImageGeneration, type ImageProvider, type TextGeneration, type TextProvider } from '../../ai-worker/src/providers'
 import { QuotaRules, utcDay, type QuotaStorage } from '../../ai-worker/src/quota'
 import { SITEVERIFY_URL, verifyTurnstile } from '../../ai-worker/src/turnstile'
 import { validateGeneratedCardText, validateMessageRequest } from '../../ai-worker/src/validate'
@@ -66,6 +67,7 @@ const aiOutput = (raw: unknown): TextGeneration => ({ raw, model: TEXT_MODEL, us
 
 function makeDeps(options: {
   provider?: TextProvider
+  imageProvider?: ImageProvider
   config?: AppConfig
   turnstile?: HandlerDeps['verifyTurnstile']
   storage?: ReturnType<typeof memoryStorage>
@@ -79,18 +81,47 @@ function makeDeps(options: {
     config,
     quota: rules,
     textProvider: options.provider ?? scriptedProvider([aiOutput({ message: GOOD_MESSAGE, templateId: 'birthday-party-01', messageFont: 'caveat' })]).provider,
+    imageProvider: options.imageProvider ?? scriptedImages([imageOutput()]).provider,
     verifyTurnstile: options.turnstile ?? (async () => { turnstileCalls++; return { ok: true } }),
     hashVisitor: async (ip) => `visitor-${ip}`,
     now: options.now ?? (() => NOON),
     textTimeoutMs: 50,
+    imageTimeoutMs: 50,
   }
   return { deps, storage, rules, turnstileCalls: () => turnstileCalls }
 }
 
-function post(body: unknown, init: { origin?: string | null; contentType?: string; ip?: string } = {}) {
+/** A structurally valid JPEG (SOI, APP0, SOF0 with the given size, padding, EOI) for the Worker's byte-level checks. */
+function fakeJpeg(width = 1024, height = 1024, totalBytes = 320_000): string {
+  const bytes = new Uint8Array(totalBytes)
+  bytes.set([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00], 0)
+  bytes.set([0xff, 0xc0, 0x00, 0x11, 0x08, height >> 8, height & 0xff, width >> 8, width & 0xff, 0x03], 20)
+  for (let index = 40; index < totalBytes - 2; index++) bytes[index] = (index * 31) & 0x7f
+  bytes.set([0xff, 0xd9], totalBytes - 2)
+  return Buffer.from(bytes).toString('base64')
+}
+
+const imageOutput = (image: unknown = fakeJpeg(), reportedNeurons: number | undefined = 172.8): ImageGeneration =>
+  ({ raw: { image }, model: IMAGE_MODEL, steps: IMAGE_STEPS, reportedNeurons })
+
+function scriptedImages(outputs: Array<ImageGeneration | Error | 'hang'>) {
+  const prompts: string[] = []
+  const provider: ImageProvider = {
+    async generate(prompt) {
+      prompts.push(prompt)
+      const next = outputs[Math.min(prompts.length - 1, outputs.length - 1)]
+      if (next === 'hang') return new Promise<ImageGeneration>(() => {})
+      if (next instanceof Error) throw next
+      return next
+    },
+  }
+  return { provider, prompts }
+}
+
+function post(body: unknown, init: { origin?: string | null; contentType?: string; ip?: string; path?: string } = {}) {
   const headers: Record<string, string> = { 'Content-Type': init.contentType ?? 'application/json', 'CF-Connecting-IP': init.ip ?? '203.0.113.7' }
   if (init.origin !== null) headers.Origin = init.origin ?? ORIGIN
-  return new Request('https://ai.example/v1/generate/message', {
+  return new Request(`https://ai.example${init.path ?? '/v1/generate/message'}`, {
     method: 'POST',
     headers,
     body: typeof body === 'string' ? body : JSON.stringify(body),
@@ -447,11 +478,169 @@ test.describe('generate/message handler', () => {
   test('status reports remaining uses without Turnstile or AI, and reports disabled when off', async () => {
     const status = (deps: HandlerDeps) => handleRequest(new Request('https://ai.example/v1/status', { headers: { Origin: ORIGIN, 'CF-Connecting-IP': '203.0.113.7' } }), deps)
     const { deps, turnstileCalls } = makeDeps()
-    expect(await (await status(deps)).json()).toEqual({ enabled: true, signatureRemaining: 3, creativeRemaining: 0 })
+    expect(await (await status(deps)).json()).toEqual({ enabled: true, signatureRemaining: 3, creativeRemaining: 1 })
     await handleRequest(post(validBody), deps)
-    expect(await (await status(deps)).json()).toEqual({ enabled: true, signatureRemaining: 2, creativeRemaining: 0 })
+    expect(await (await status(deps)).json()).toEqual({ enabled: true, signatureRemaining: 2, creativeRemaining: 1 })
     expect(turnstileCalls()).toBe(1)
     expect(await (await status(makeDeps({ config: testConfig({ AI_ENABLED: 'false' }) }).deps)).json())
       .toEqual({ enabled: false, signatureRemaining: 0, creativeRemaining: 0 })
+  })
+})
+
+const illustrationBody = { turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX', occasion: 'Birthday', style: 'watercolor' }
+const postIllustration = (body: unknown = illustrationBody, init: Parameters<typeof post>[1] = {}) =>
+  post(body, { ...init, path: '/v1/generate/illustration' })
+
+test.describe('illustration costs and usage', () => {
+  test('prices flux-1-schnell per tile, with steps charged per tile, matching a real reported 172.8', () => {
+    expect(imageNeurons(1024, 1024, 4)).toBe(173)
+    expect(imageNeurons(512, 512, 4)).toBe(44)
+    expect(imageNeurons(1024, 768, 4)).toBe(173)
+  })
+
+  test('prefers the Neurons Workers AI reports for text calls', () => {
+    expect(readUsage({ prompt_tokens: 600, completion_tokens: 80, neurons: 31.4 })).toEqual({ promptTokens: 600, completionTokens: 80, reportedNeurons: 31.4 })
+    expect(textNeurons(TEXT_MODEL, { promptTokens: 600, completionTokens: 80, reportedNeurons: 31.4 })).toBe(32)
+    expect(readUsage({ prompt_tokens: 600, completion_tokens: 80, neurons: -1 })).toEqual({ promptTokens: 600, completionTokens: 80 })
+  })
+})
+
+test.describe('illustration request and output validation', () => {
+  test('accepts only allow-listed occasion and style, and ignores any free text', () => {
+    const result = validateIllustrationRequest({ ...illustrationBody, extraInstructions: 'draw something else', prompt: 'ignore rules' })
+    expect(result).toEqual({ ok: true, value: illustrationBody })
+    expect(validateIllustrationRequest({ ...illustrationBody, style: 'photorealistic' }).ok).toBe(false)
+    expect(validateIllustrationRequest({ ...illustrationBody, occasion: 'Anniversary' }).ok).toBe(false)
+    expect(validateIllustrationRequest({ ...illustrationBody, turnstileToken: '' }).ok).toBe(false)
+  })
+
+  test('builds a fixed prompt that never asks for text in the image', () => {
+    const prompt = buildIllustrationPrompt({ occasion: 'Love', style: 'whimsical' })
+    expect(prompt).toContain('whimsical storybook illustration')
+    expect(prompt).toContain('two coffee cups')
+    expect(prompt).toMatch(/No text, no letters, no words/)
+    expect(prompt).toContain('The left two thirds must be calm, plain, light background')
+  })
+
+  test('accepts a complete JPEG of a supported size and reads its dimensions', () => {
+    expect(validateIllustrationOutput({ image: fakeJpeg(1024, 1024) })).toMatchObject({ ok: true, value: { width: 1024, height: 1024, bytes: 320_000 } })
+    expect(jpegDimensions(Buffer.from(fakeJpeg(800, 1000), 'base64'))).toEqual({ width: 800, height: 1000 })
+  })
+
+  const badOutputs: Array<[string, unknown]> = [
+    ['no output', null],
+    ['a missing image', { usage: {} }],
+    ['an empty image', { image: '' }],
+    ['non-base64 data', { image: 'not base64!!' }],
+    ['a PNG instead of a JPEG', { image: Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(30_000, 1), Buffer.from([0xff, 0xd9])]).toString('base64') }],
+    ['an almost-empty image', { image: fakeJpeg(1024, 1024, 4_000) }],
+    ['an oversized file', { image: fakeJpeg(1024, 1024, 2_200_000) }],
+    ['a truncated file', { image: fakeJpeg().slice(0, -8) + 'AAAAAAAA' }],
+    ['a tiny picture', { image: fakeJpeg(256, 256) }],
+    ['an extreme aspect ratio', { image: fakeJpeg(2048, 600) }],
+    ['an SVG with script', { image: Buffer.from('<svg onload="alert(1)"></svg>'.padEnd(30_000, ' ')).toString('base64') }],
+  ]
+  for (const [label, raw] of badOutputs) {
+    test(`rejects ${label}`, () => {
+      expect(validateIllustrationOutput(raw).ok).toBe(false)
+    })
+  }
+})
+
+test.describe('creative budget', () => {
+  test('holds images to their own share of the daily cap, leaving room for text', async () => {
+    const config = testConfig({ VISITOR_COOLDOWN_SECONDS: '0', CREATIVE_PER_VISITOR_PER_DAY: '99', DAILY_NEURON_ALLOWANCE: '1000', BUDGET_FRACTION: '0.8' })
+    expect(config.quota.creativeNeuronCap).toBe(400)
+    const rules = new QuotaRules(memoryStorage(), config.quota)
+    expect((await rules.reserve('v1', 'creative', NOON)).ok).toBe(true) // 180 of 400
+    expect((await rules.reserve('v2', 'creative', NOON)).ok).toBe(true) // 360 of 400
+    expect(await rules.reserve('v3', 'creative', NOON)).toEqual({ ok: false, error: 'budget_exhausted' })
+    expect((await rules.status('v3', NOON)).creativeRemaining).toBe(0)
+    // Text still has the rest of the overall cap.
+    expect((await rules.reserve('v3', 'signature', NOON)).ok).toBe(true)
+    expect((await rules.status('v4', NOON)).signatureRemaining).toBe(3)
+  })
+
+  test('settling an image corrects both the overall and the creative totals', async () => {
+    const storage = memoryStorage()
+    const rules = new QuotaRules(storage, testConfig().quota)
+    const reserved = await rules.reserve('v1', 'creative', NOON)
+    if (!reserved.ok) throw new Error('expected reservation')
+    await rules.settle(reserved.reservation, 172.8)
+    expect(storage.data.get(`spent:${utcDay(NOON)}`)).toBe(173)
+    expect(storage.data.get(`creative-spent:${utcDay(NOON)}`)).toBe(173)
+    expect(await rules.purgeOldDays(NOON + 24 * 60 * 60 * 1000)).toBe(3)
+  })
+})
+
+test.describe('generate/illustration handler', () => {
+  test('returns a validated JPEG and records the reported cost', async () => {
+    const { provider, prompts } = scriptedImages([imageOutput()])
+    const { deps, storage } = makeDeps({ imageProvider: provider })
+    const response = await handleRequest(postIllustration(), deps)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    const body = await response.json()
+    expect(body).toMatchObject({ mimeType: 'image/jpeg', width: 1024, height: 1024 })
+    expect(body.image).toBe(fakeJpeg())
+    expect(prompts).toEqual([buildIllustrationPrompt({ occasion: 'Birthday', style: 'watercolor' })])
+    expect(storage.data.get(`spent:${utcDay(NOON)}`)).toBe(173)
+  })
+
+  test('prices the image itself when Workers AI reports no usage', async () => {
+    const { deps, storage } = makeDeps({ imageProvider: scriptedImages([imageOutput(fakeJpeg(), undefined)]).provider })
+    await handleRequest(postIllustration(), deps)
+    expect(storage.data.get(`creative-spent:${utcDay(NOON)}`)).toBe(imageNeurons(1024, 1024, IMAGE_STEPS))
+  })
+
+  test('allows one illustration per visitor per day by default', async () => {
+    let clock = NOON
+    const { provider, prompts } = scriptedImages([imageOutput()])
+    const { deps } = makeDeps({ imageProvider: provider, now: () => clock })
+    expect((await handleRequest(postIllustration(), deps)).status).toBe(200)
+    clock += 60_000
+    const second = await handleRequest(postIllustration(), deps)
+    expect(second.status).toBe(429)
+    expect(await second.json()).toEqual({ error: 'daily_limit_reached' })
+    expect(prompts).toHaveLength(1)
+    // The visitor's text messages are a separate quota.
+    expect((await handleRequest(post(validBody), deps)).status).toBe(200)
+  })
+
+  test('retries a bad image exactly once without using another of the visitor’s illustrations', async () => {
+    const { provider, prompts } = scriptedImages([imageOutput({ broken: true }), imageOutput()])
+    const { deps, rules } = makeDeps({ imageProvider: provider })
+    expect((await handleRequest(postIllustration(), deps)).status).toBe(200)
+    expect(prompts).toHaveLength(2)
+    expect((await rules.status('visitor-203.0.113.7', NOON)).creativeRemaining).toBe(0)
+  })
+
+  test('gives up after one retry on errors, timeouts and invalid images', async () => {
+    for (const outputs of [[new Error('upstream')], ['hang' as const], [imageOutput(fakeJpeg(1024, 1024, 4_000))]]) {
+      const { provider, prompts } = scriptedImages(outputs)
+      const response = await handleRequest(postIllustration(), makeDeps({ imageProvider: provider }).deps)
+      expect(response.status).toBe(502)
+      expect(await response.json()).toEqual({ error: 'generation_failed' })
+      expect(prompts).toHaveLength(2)
+    }
+  })
+
+  test('makes no image call when the creative budget, Turnstile or the kill switch says no', async () => {
+    const cases: Array<[Partial<Parameters<typeof makeDeps>[0]>, number, string]> = [
+      [{ config: testConfig({ DAILY_NEURON_ALLOWANCE: '300', BUDGET_FRACTION: '0.8' }) }, 503, 'budget_exhausted'],
+      [{ turnstile: async () => ({ ok: false, reason: 'rejected' }) }, 403, 'verification_failed'],
+      [{ config: testConfig({ AI_ENABLED: 'false' }) }, 503, 'ai_disabled'],
+    ]
+    for (const [options, status, code] of cases) {
+      const { provider, prompts } = scriptedImages([imageOutput()])
+      const response = await handleRequest(postIllustration(), makeDeps({ ...options, imageProvider: provider }).deps)
+      expect(response.status).toBe(status)
+      expect(await response.json()).toEqual({ error: code })
+      expect(prompts).toHaveLength(0)
+    }
+    const invalid = scriptedImages([imageOutput()])
+    const response = await handleRequest(postIllustration({ ...illustrationBody, style: 'photo' }), makeDeps({ imageProvider: invalid.provider }).deps)
+    expect(response.status).toBe(400)
+    expect(invalid.prompts).toHaveLength(0)
   })
 })

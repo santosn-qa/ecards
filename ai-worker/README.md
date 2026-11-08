@@ -8,10 +8,11 @@ It holds no card content. Its only storage is one Durable Object
 (`QuotaGuard`) holding a per-UTC-day Neuron total and per-visitor counts keyed
 by a hashed IP. Records from earlier days are deleted by a daily alarm.
 
-**Status (Milestone 3):** text generation has been run against real Workers
-AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) through `wrangler dev`, the
-prompt tuned, and the cost measured: about 30 Neurons per message. The Worker
-hasn't been deployed yet, and there's no frontend until Milestone 4.
+**Status (Milestone 5):** text messages
+(`@cf/meta/llama-3.3-70b-instruct-fp8-fast`, about 30 Neurons each) and
+original illustrations (`@cf/black-forest-labs/flux-1-schnell`, 172.8 Neurons
+each) have both been run against real Workers AI through `wrangler dev`. The
+Worker hasn't been deployed yet.
 
 ## Cost safety
 
@@ -23,6 +24,9 @@ hasn't been deployed yet, and there's no frontend until Milestone 4.
   corrects it from the reported token usage afterwards.
 - The allocation is account-wide. Other Workers AI use on the same account
   isn't seen by this counter.
+- Illustrations cost about 6 times as much as a text message, so they're
+  held to `CREATIVE_BUDGET_FRACTION` of the cap (half, by default: about 23 a
+  day) and one per visitor per day.
 - Kill switch: set `AI_ENABLED` to `"false"` in `wrangler.toml` and redeploy.
   Every generate request is then refused before Turnstile or AI.
 

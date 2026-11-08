@@ -398,3 +398,25 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 @media (max-width: 420px) {
   .ai-actions > button { flex: 1 1 100%; }
 }
+
+/* "Illustration above text" layout, used only for AI illustrations so text never covers the picture. */
+.card-preview.card-layout-ai-top { container-type: inline-size; background: var(--panel-color, #f6f0e4); }
+.card-preview.card-layout-ai-top .preview-art { inset: 0 0 auto 0; height: 45%; }
+.card-preview.card-layout-ai-top .preview-art::after { position: absolute; inset: auto 0 0 0; height: 14%; content: ''; background: linear-gradient(180deg, transparent, var(--panel-color, #f6f0e4)); }
+/* Anchored to the bottom with a minimum height, so a very long message on a small phone grows the panel upwards over the image's faded edge instead of being cut off. */
+.card-preview.card-layout-ai-top .preview-content { position: absolute; inset: auto 0 0 0; z-index: 1; display: flex; width: 100%; height: auto; min-height: 55%; flex-direction: column; justify-content: flex-start; align-self: stretch; padding: 4.5% 8% 5%; background: var(--panel-color, #f6f0e4); }
+.card-preview.card-layout-ai-top .preview-tagline { margin-bottom: 2.2cqw; font-size: max(9px, 2.1cqw); }
+.card-preview.card-layout-ai-top .preview-to { margin-bottom: 1.6cqw; font-size: max(11px, 3cqw); }
+.card-preview.card-layout-ai-top .preview-message { flex: 0 1 auto; max-width: 100%; margin-bottom: 2cqw; overflow: visible; font-size: max(14px, 6.4cqw); line-height: 1.16; }
+.card-preview.card-layout-ai-top .preview-message.message-length-long { font-size: max(12px, 4.9cqw); line-height: 1.18; }
+.card-preview.card-layout-ai-top .preview-message.message-length-xlong { font-size: max(10px, 3.1cqw); line-height: 1.2; }
+.card-preview.card-layout-ai-top .preview-from { margin-top: auto; font-size: max(11px, 3.1cqw); }
+.card-preview.card-layout-ai-top .preview-caption { display: none; }
+.ai-art-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px; margin: 14px 0 0; color: #786e69; font-size: .74rem; text-align: center; }
+.ai-art-note span[aria-hidden] { color: #d26f4f; }
+.ai-art-toggle { min-height: 32px; padding: 0 4px; border: none; background: none; color: #b5583d; font-size: .74rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ai-illustration { display: grid; gap: 10px; margin-top: 6px; padding-top: 20px; border-top: 1px solid #ecdcd3; }
+.ai-illustration h3 { margin: 0; color: #4d4643; font-size: .95rem; font-weight: 600; }
+.ai-illustration p { margin: 0; color: #716965; font-size: .8rem; line-height: 1.55; }
+.ai-badge { margin-left: 6px; padding: 2px 7px; border-radius: 100px; background: #fbe3d8; color: #9c4527; font-size: .62rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+.card-preview.card-layout-ai-top .preview-art::before { display: none; }

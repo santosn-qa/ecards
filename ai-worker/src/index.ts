@@ -1,6 +1,6 @@
 import { parseConfig, type RawConfigEnv } from './config'
 import { handleRequest } from './handler'
-import { workersAiTextProvider } from './providers'
+import { workersAiImageProvider, workersAiTextProvider } from './providers'
 import type { QuotaGuard } from './quotaGuard'
 import { verifyTurnstile } from './turnstile'
 import { hashVisitor } from './visitor'
@@ -22,6 +22,7 @@ export default {
       config,
       quota: env.QUOTA_GUARD.getByName(QUOTA_GUARD_NAME),
       textProvider: workersAiTextProvider(env.AI),
+      imageProvider: workersAiImageProvider(env.AI),
       verifyTurnstile: (token, remoteIp) =>
         verifyTurnstile({
           token,

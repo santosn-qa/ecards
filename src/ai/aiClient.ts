@@ -50,7 +50,7 @@ export type AiCardSuggestion = {
   source: 'ai' | 'user'
 }
 
-export type AiStatus = { enabled: boolean; signatureRemaining: number }
+export type AiStatus = { enabled: boolean; signatureRemaining: number; creativeRemaining: number }
 
 export type AiErrorCode =
   | 'invalid_request'
@@ -114,11 +114,12 @@ export async function fetchAiStatus(apiUrl: string, signal?: AbortSignal): Promi
   try {
     const response = await fetch(`${apiUrl}/v1/status`, { signal })
     if (!response.ok) return readError(response)
-    const body = (await response.json()) as { enabled?: unknown; signatureRemaining?: unknown }
+    const body = (await response.json()) as { enabled?: unknown; signatureRemaining?: unknown; creativeRemaining?: unknown }
     if (typeof body.enabled !== 'boolean' || typeof body.signatureRemaining !== 'number') {
       return { ok: false, error: 'unexpected_response' }
     }
-    return { ok: true, value: { enabled: body.enabled, signatureRemaining: body.signatureRemaining } }
+    const creativeRemaining = typeof body.creativeRemaining === 'number' ? body.creativeRemaining : 0
+    return { ok: true, value: { enabled: body.enabled, signatureRemaining: body.signatureRemaining, creativeRemaining } }
   } catch (error) {
     return { ok: false, error: isAbort(error) ? 'aborted' : 'network' }
   }
@@ -136,6 +137,61 @@ export async function generateAiMessage(apiUrl: string, request: AiMessageReques
     if (!response.ok) return readError(response)
     const suggestion = parseSuggestion(await response.json(), request.occasion)
     return suggestion ? { ok: true, value: suggestion } : { ok: false, error: 'unexpected_response' }
+  } catch (error) {
+    return { ok: false, error: isAbort(error) ? 'aborted' : 'network' }
+  }
+}
+
+export type AiIllustrationRequest = { turnstileToken: string; occasion: Occasion; style: AiStyle }
+export type AiIllustration = { blob: Blob; width: number; height: number }
+
+const ILLUSTRATION_MAX_BYTES = 2 * 1024 * 1024
+
+/**
+ * Checks a returned illustration is a complete JPEG before it can reach the
+ * card: JPEG start and end markers, a size limit, and base64 only. The image
+ * is then shown from a local blob: URL, never from a remote address.
+ */
+export function illustrationBytes(value: unknown): Uint8Array<ArrayBuffer> | null {
+  if (!value || typeof value !== 'object') return null
+  const { image, mimeType } = value as Record<string, unknown>
+  if (mimeType !== 'image/jpeg' || typeof image !== 'string' || image.length === 0) return null
+  if (image.length > Math.ceil((ILLUSTRATION_MAX_BYTES * 4) / 3) + 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) return null
+  let bytes: Uint8Array<ArrayBuffer>
+  try {
+    bytes = Uint8Array.from(atob(image), (character) => character.charCodeAt(0))
+  } catch {
+    return null
+  }
+  const n = bytes.length
+  if (n < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return null
+  if (bytes[n - 2] !== 0xff || bytes[n - 1] !== 0xd9) return null
+  return bytes
+}
+
+/** One request, never retried here. The image must also decode in this browser at a usable size. */
+export async function generateAiIllustration(apiUrl: string, request: AiIllustrationRequest, signal?: AbortSignal): Promise<AiResult<AiIllustration>> {
+  try {
+    const response = await fetch(`${apiUrl}/v1/generate/illustration`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    })
+    if (!response.ok) return readError(response)
+    const bytes = illustrationBytes(await response.json())
+    if (!bytes) return { ok: false, error: 'unexpected_response' }
+    const blob = new Blob([bytes], { type: 'image/jpeg' })
+    let bitmap: ImageBitmap
+    try {
+      bitmap = await createImageBitmap(blob)
+    } catch {
+      return { ok: false, error: 'unexpected_response' }
+    }
+    const { width, height } = bitmap
+    bitmap.close()
+    if (Math.min(width, height) < 512 || width / height < 0.5 || width / height > 2) return { ok: false, error: 'unexpected_response' }
+    return { ok: true, value: { blob, width, height } }
   } catch (error) {
     return { ok: false, error: isAbort(error) ? 'aborted' : 'network' }
   }

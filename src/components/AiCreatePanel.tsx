@@ -5,6 +5,7 @@ import {
   aiTones,
   describeAiError,
   fetchAiStatus,
+  generateAiIllustration,
   generateAiMessage,
   type AiCardSuggestion,
   type AiRecipient,
@@ -15,6 +16,7 @@ import { loadTurnstile, type TurnstileApi } from '../ai/turnstile'
 import { occasions, type Occasion } from '../data/templates'
 
 export type AiApplied = AiCardSuggestion & { occasion: Occasion }
+export type AiIllustrationApplied = { blob: Blob; occasion: Occasion }
 
 type AiCreatePanelProps = {
   apiUrl: string
@@ -24,12 +26,16 @@ type AiCreatePanelProps = {
   hasTypedMessage: boolean
   onApply: (result: AiApplied) => void
   onApplyMessage: (message: string) => void
+  /** Called with a validated JPEG; the app shows it from a local blob: URL. */
+  onApplyIllustration: (result: AiIllustrationApplied) => void
+  /** True when the card already has an AI illustration, to word the button as a replacement. */
+  hasIllustration: boolean
   onClose: () => void
 }
 
 type Availability = 'checking' | 'available' | 'unavailable' | 'limit-reached'
 
-export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTypedMessage, onApply, onApplyMessage, onClose }: AiCreatePanelProps) {
+export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTypedMessage, onApply, onApplyMessage, onApplyIllustration, hasIllustration, onClose }: AiCreatePanelProps) {
   const [occasion, setOccasion] = useState<Occasion>(initialOccasion)
   const [recipient, setRecipient] = useState<AiRecipient>('friend')
   const [tone, setTone] = useState<AiTone>('heartfelt')
@@ -38,6 +44,8 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTy
   const [ownWords, setOwnWords] = useState('')
   const [availability, setAvailability] = useState<Availability>('checking')
   const [remaining, setRemaining] = useState<number | null>(null)
+  const [creativeRemaining, setCreativeRemaining] = useState<number | null>(null)
+  const [illustrationStatus, setIllustrationStatus] = useState('')
   const [online, setOnline] = useState(() => navigator.onLine)
   const [token, setToken] = useState<string | null>(null)
   const [verificationError, setVerificationError] = useState(false)
@@ -65,7 +73,9 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTy
     fetchAiStatus(apiUrl, controller.signal).then((result) => {
       if (controller.signal.aborted) return
       if (!result.ok || !result.value.enabled) return setAvailability('unavailable')
+      // A visitor may still have an illustration left after using every text card, and vice versa.
       setRemaining(result.value.signatureRemaining)
+      setCreativeRemaining(result.value.creativeRemaining)
       setAvailability(result.value.signatureRemaining > 0 ? 'available' : 'limit-reached')
     })
     return () => controller.abort()
@@ -142,7 +152,36 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTy
     setStatus(kind === 'new' ? 'Your card is ready below. Edit anything you like.' : 'New message added. Your design and font stay as they are.')
   }
 
+  async function generateIllustration() {
+    if (!token || generating) return
+    const controller = new AbortController()
+    requestRef.current = controller
+    setGenerating(true)
+    setIllustrationStatus('Painting your illustration… this can take up to half a minute.')
+    const result = await generateAiIllustration(apiUrl, { turnstileToken: token, occasion, style }, controller.signal)
+    requestRef.current = null
+    setGenerating(false)
+    setToken(null)
+    if (widgetRef.current) widgetRef.current.api.reset(widgetRef.current.id)
+
+    if (!result.ok) {
+      setIllustrationStatus(
+        result.error === 'daily_limit_reached'
+          ? 'You’ve made today’s AI illustration. Come back tomorrow, or use a Little Hello design.'
+          : result.error === 'budget_exhausted'
+            ? 'AI illustrations are resting for today. They use more of the free daily AI allowance. Little Hello designs are always available.'
+            : describeAiError(result.error, result.retryAfterSeconds),
+      )
+      if (result.error === 'daily_limit_reached' || result.error === 'budget_exhausted') setCreativeRemaining(0)
+      return
+    }
+    setCreativeRemaining((current) => (current === null ? current : Math.max(0, current - 1)))
+    onApplyIllustration({ blob: result.value.blob, occasion })
+    setIllustrationStatus('Your illustration is on the card. Download the card to keep it.')
+  }
+
   const usingOwnWords = ownWords.trim().length > 0
+  const canIllustrate = online && Boolean(token) && !generating && availability !== 'unavailable' && availability !== 'checking' && (creativeRemaining ?? 0) > 0
   // Your own words cost no AI use, so they still work once today's AI cards are used up.
   const canGenerate = online && Boolean(token) && !generating && (availability === 'available' || (availability === 'limit-reached' && usingOwnWords))
   const availabilityNote =
@@ -166,7 +205,7 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTy
       </div>
       <p className="ai-panel-intro">Tell us a little about the card and we’ll suggest a message, design and font. You can edit everything afterwards.</p>
 
-      <form className="ai-form" onSubmit={(event) => { event.preventDefault(); void generate('new') }}>
+      <form className="ai-form" aria-label="Write a card with AI" onSubmit={(event) => { event.preventDefault(); void generate('new') }}>
         <div className="ai-form-grid">
           <label>Occasion
             <select value={occasion} onChange={(event) => setOccasion(event.target.value as Occasion)}>
@@ -230,6 +269,25 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, initialOccasion, hasTy
         )}
         <p className="ai-status" role="status" aria-live="polite">{statusText}</p>
       </form>
+
+      <div className="ai-illustration" aria-labelledby="ai-illustration-title">
+        <h3 id="ai-illustration-title">Original AI illustration <span className="ai-badge">Beta</span></h3>
+        <p>
+          Create a one-of-a-kind picture for this occasion and look, with no words in it. It shows in your preview and
+          your downloaded card. <strong>Share links use the Little Hello design</strong>, because the picture is too big to fit in a link.
+        </p>
+        <div className="ai-actions">
+          {!generating && (
+            <button className="secondary-action" type="button" onClick={() => void generateIllustration()} disabled={!canIllustrate}>
+              {hasIllustration ? 'Make a new illustration' : 'Create an illustration'}
+            </button>
+          )}
+          {creativeRemaining !== null && availability !== 'unavailable' && online && (
+            <span className="ai-remaining">{creativeRemaining} {creativeRemaining === 1 ? 'illustration' : 'illustrations'} left today</span>
+          )}
+        </div>
+        <p className="ai-status" role="status" aria-live="polite">{online ? illustrationStatus : ''}</p>
+      </div>
     </section>
   )
 }
