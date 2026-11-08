@@ -243,18 +243,33 @@ already an object, and both are handled. Rules:
 
 ## Frontend (Milestone 4)
 
-- A "Create with AI" button near step 01 opens a panel with occasion, recipient,
-  tone, style, an optional personal message, optional extra instructions,
-  the privacy note, Turnstile, and Generate.
-- Generate shows a loading state with Cancel (an `AbortController`).
+- A "✦ Create with AI" button in the hero opens a panel above step 01. It has
+  selects for occasion, recipient, tone and look, an optional "Anything to
+  include?" field, an optional "Your own words" field (collapsed), the privacy
+  note, a Turnstile widget, and "Write my card". Files:
+  `src/components/AiCreatePanel.tsx`, `src/ai/aiClient.ts`,
+  `src/ai/turnstile.ts`, `src/config/ai.ts`.
+- Opening the panel makes one `GET /v1/status` request and loads the Turnstile
+  script (`appearance: interaction-only`). Closing it removes the widget.
+  Nothing loads on page load.
+- Generate shows a busy state with Cancel (an `AbortController`). Every
+  Turnstile token is used once, and the widget is reset after each request.
+  The browser never retries automatically.
 - On success, the panel fills the **existing** editor: occasion, template,
-  message and font. The user then edits, shares and downloads as normal.
-  "Regenerate message" is offered.
-- Hidden when `VITE_AI_API_URL` is unset. Disabled with an explanation when
-  offline, `enabled: false`, or the user's quota is used up.
-- The service worker must not cache `/v1/*` responses. They're cross-origin
-  and use non-GET methods, so Workbox's precache doesn't touch them; this will be
-  verified.
+  message and font. A "✦ Written with AI help" note appears above the message,
+  and the message is protected from accidental replacement by sample chips. The
+  editor scrolls into view. "Regenerate message" replaces only the message
+  and keeps whatever design and font the user has picked since.
+- Every response is re-checked in the browser (`parseSuggestion`): the
+  template must belong to the requested occasion, the font must be known, and
+  the message 1–500 characters. React renders it as text, never HTML.
+- Hidden entirely unless both `VITE_AI_API_URL` and `VITE_TURNSTILE_SITE_KEY`
+  are set. Disabled with an explanation when offline, `enabled: false`, or the
+  visitor's quota is used up. "Your own words" still works then, since it costs
+  no AI.
+- **Service worker (verified):** the generated `sw.js` registers only the
+  app-shell navigation route, and its precache list holds only local assets,
+  so `/v1/*` responses and the Turnstile script are never cached.
 
 ## Testing
 

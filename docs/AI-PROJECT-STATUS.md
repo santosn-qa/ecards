@@ -29,6 +29,10 @@ Phase 2: shareable cards and local export.
 - Visible "Made privately" mobile trust label (no longer `font-size: 0`)
 - Desktop chevron controls for the message-font carousel
 - Character counters on the To/From fields
+- Optional "Create with AI" panel (hidden unless `VITE_AI_API_URL` and
+  `VITE_TURNSTILE_SITE_KEY` are set): suggests a message, design and font via
+  the separate `ai-worker/`, then fills the normal editor. Text only so far;
+  Creative-mode illustrations are a later milestone.
 
 ## Known issues and deferred work
 
