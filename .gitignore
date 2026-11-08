@@ -34,3 +34,5 @@ ai-worker/.wrangler
 *.sln
 *.sw?
 .playwright-mcp/
+
+*.env
