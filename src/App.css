@@ -22,7 +22,7 @@ h1 { margin: 0; color: #27232d; font-size: clamp(3.1rem, 7vw, 5.8rem); line-heig
 .step-section { border-top: 1px solid #e8e1dd; padding: 44px 0 60px; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
 .section-heading.compact { margin-bottom: 22px; }
-.step-label { margin-bottom: 8px; }
+.step-label { margin-bottom: 8px; color: #9c4527; font-size: .78rem; } /* darker than .eyebrow so small text meets WCAG AA (4.5:1) on the cream page */
 .step-label span { color: #786e69; }
 h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-spacing: -.04em; }
 .section-hint { color: #786e69; font-size: .8rem; }
@@ -61,10 +61,6 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .message-field-meta { display: flex; align-items: baseline; gap: 10px; }
 .clear-message-button { color: #786e69; font-size: .72rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; background: none; border: none; padding: 0; cursor: pointer; }
 .clear-message-button:hover { color: #b5583d; }
-.sample-chips-hint { color: #786e69; font-size: .78rem; font-weight: 400; }
-.sample-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.sample-chip { min-height: 36px; padding: 0 14px; border: 1px solid #e1d9d4; border-radius: 100px; background: transparent; color: #716965; font-size: .78rem; font-weight: 600; transition: .2s ease; }
-.sample-chip:hover { border-color: #d26f4f; background: #fff1ec; color: #b5583d; }
 .font-picker { margin-top: 26px; }
 .font-picker-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 12px; color: #514946; font-size: .84rem; font-weight: 600; }
 .font-picker-heading small { color: #786e69; font-size: .7rem; font-weight: 400; }
@@ -366,34 +362,62 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .sent-counter { margin: 16px 0 0; color: #d26f4f; font-size: .85rem; font-weight: 600; }
 .sent-counter span { margin-right: 4px; }
 
-/* Create with AI (optional; only rendered when VITE_AI_API_URL and VITE_TURNSTILE_SITE_KEY are set) */
-.ai-entry { gap: 10px; min-height: 54px; margin-top: 24px; padding: 0 26px; font-size: 1rem; }
-.ai-entry span { color: #ffd9c7; }
-.ai-panel { margin: 0 0 56px; padding: clamp(22px, 4vw, 34px); border: 1px solid #e8e1dd; border-radius: 14px; background: #fff8f4; }
-.ai-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.ai-panel-heading .eyebrow { margin-bottom: 8px; }
-.ai-panel-close { display: grid; flex: none; place-items: center; width: 44px; height: 44px; margin: -6px -6px 0 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: #716965; font-size: 1.5rem; line-height: 1; }
-.ai-panel-close:hover { border-color: #e1d9d4; color: #b5583d; }
-.ai-panel-intro { max-width: 560px; margin: 14px 0 24px; color: #716965; font-size: .9rem; line-height: 1.6; }
-.ai-form { display: grid; gap: 18px; }
-.ai-form label { display: grid; gap: 8px; color: #514946; font-size: .84rem; font-weight: 600; }
-.ai-form small { color: #786e69; font-size: .72rem; font-weight: 400; }
-.ai-form select, .ai-form input, .ai-form textarea { width: 100%; min-height: 46px; border: 1px solid #ded6d1; border-radius: 8px; outline: none; padding: 11px 13px; background: #fff; color: #27232d; font-weight: 400; }
-.ai-form textarea { resize: vertical; }
-.ai-form select:focus, .ai-form input:focus, .ai-form textarea:focus { border-color: #d26f4f; box-shadow: 0 0 0 3px #d26f4f20; }
-.ai-privacy { margin: 0; color: #786e69; font-size: .74rem; line-height: 1.55; }
+/* Steps 01–03: who, what and how. Large, plainly labelled choices for every hand and eye. */
+.hero-start { min-height: 56px; margin-top: 24px; padding: 0 30px; font-size: 1.05rem; }
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.choice-grid-compact { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.choice-grid-compact .choice-button { padding: 10px 8px; overflow-wrap: anywhere; }
+.choice-button { min-height: 56px; padding: 10px 16px; border: 2px solid #e1d9d4; border-radius: 12px; background: #fff; color: #3f3835; font-size: 1.05rem; font-weight: 600; line-height: 1.25; text-align: center; }
+.choice-button.is-selected { border-color: #b7502f; background: #fff1ec; color: #9c4527; }
+.choice-more { border-style: dashed; background: transparent; color: #9c4527; }
+.choice-more-panel { display: grid; gap: 20px; margin-top: 18px; padding: clamp(16px, 3vw, 24px); border: 1px solid #e8e1dd; border-radius: 14px; background: #fffaf7; }
+.choice-search { display: grid; gap: 8px; color: #3f3835; font-size: 1rem; font-weight: 600; }
+.choice-search input { width: 100%; min-height: 54px; padding: 0 14px; border: 2px solid #ded6d1; border-radius: 10px; background: #fff; color: #27232d; font-size: 1.05rem; }
+.choice-search input:focus { border-color: #b7502f; outline: none; box-shadow: 0 0 0 3px #d26f4f30; }
+.choice-group h3 { margin: 0 0 10px; color: #5f5652; font-size: 1rem; font-weight: 600; }
+.choice-empty { margin: 0; color: #5f5652; font-size: 1rem; }
+.how-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.how-option { display: grid; align-content: center; gap: 6px; min-height: 96px; padding: 18px 20px; border: 2px solid #e1d9d4; border-radius: 14px; background: #fff; text-align: left; }
+.how-option-title { color: #3f3835; font-size: 1.15rem; font-weight: 700; }
+.how-option-title span { color: #d26f4f; }
+.how-option-text { color: #5f5652; font-size: 1rem; }
+.how-option.is-selected { border-color: #b7502f; background: #fff1ec; }
+.how-hint { margin: 18px 0 0; color: #3f3835; font-size: 1.05rem; }
+.make-for-me, .message-chooser { display: grid; gap: 16px; margin-top: 22px; padding: clamp(18px, 3vw, 28px); border: 1px solid #e8e1dd; border-radius: 14px; background: #fff8f4; }
+.make-for-me-summary { margin: 0; color: #3f3835; font-size: 1.05rem; line-height: 1.5; }
+.make-for-me-summary span { margin-right: 4px; color: #d26f4f; }
+.message-list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.message-card { display: grid; gap: 14px; padding: 20px; border: 1px solid #e8e1dd; border-radius: 12px; background: #fff; }
+.message-card-text { margin: 0; color: #2f2a2d; font-family: Georgia, 'Times New Roman', serif; font-size: 1.15rem; line-height: 1.55; }
+.message-card-use, .message-show-more { justify-self: start; min-height: 52px; padding: 0 24px; font-size: 1rem; }
+.message-card-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.message-card-confirm p { flex: 1 1 100%; margin: 0; color: #9c4527; font-size: 1rem; }
+.message-card-confirm button { min-height: 52px; font-size: 1rem; }
+.message-chooser-note, .message-chooser-empty { margin: 0; color: #5f5652; font-size: 1rem; }
+.change-message-button { justify-self: start; min-height: 44px; padding: 0 18px; border: 1px solid #d26f4f; border-radius: 100px; background: #fff; color: #9c4527; font-size: .92rem; font-weight: 600; }
+.start-over-button { margin-top: 10px; }
+.choice-button:focus-visible, .how-option:focus-visible, .change-message-button:focus-visible { outline: 3px solid #b7502f; outline-offset: 2px; }
+/* Hover only hints, and only with a real mouse, so a tapped choice never looks selected by mistake. */
+@media (hover: hover) {
+  .choice-button:not(.is-selected):hover, .how-option:not(.is-selected):hover { border-color: #d9a48f; }
+}
+
+/* "Make it for me" */
+.ai-privacy { margin: 0; color: #786e69; font-size: .85rem; line-height: 1.55; }
 .ai-privacy span { margin-right: 4px; color: #e77955; }
-.ai-replace-note { margin: 0; color: #9c4527; font-size: .78rem; }
+.ai-replace-note { margin: 0; color: #9c4527; font-size: .95rem; }
 .ai-turnstile:empty { display: none; }
 .ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ai-actions:empty { display: none; }
 .ai-actions .primary-action:disabled, .ai-actions .secondary-action:disabled { cursor: not-allowed; opacity: .55; }
-.ai-remaining { color: #786e69; font-size: .74rem; }
-.ai-hint { margin: -8px 0 0; color: #786e69; font-size: .72rem; }
-.ai-status { min-height: 18px; margin: 0; color: #665d59; font-size: .8rem; line-height: 1.5; }
-.ai-assisted-note { margin: 0; color: #b5583d; font-size: .74rem; }
+.ai-big-button { min-height: 58px; padding: 0 32px; font-size: 1.1rem; }
+.ai-status { min-height: 18px; margin: 0; color: #3f3835; font-size: 1.05rem; font-weight: 500; line-height: 1.5; }
+.ai-remaining { margin: 0; color: #786e69; font-size: .92rem; }
+.ai-assisted-note { margin: 0; color: #b5583d; font-size: .8rem; }
 .ai-assisted-note span { margin-right: 4px; }
 @media (max-width: 420px) {
-  .ai-actions > button { flex: 1 1 100%; }
+  .choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ai-big-button, .message-card-use, .message-show-more, .message-card-confirm button, .hero-start { width: 100%; }
 }
 
 /* "Illustration above text" layout, used only for AI illustrations so text never covers the picture. */
@@ -413,40 +437,3 @@ h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.45rem); line-height: 1; letter-s
 .ai-art-note span[aria-hidden] { color: #d26f4f; }
 .ai-art-toggle { min-height: 32px; padding: 0 4px; border: none; background: none; color: #b5583d; font-size: .74rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .card-preview.card-layout-ai-top .preview-art::before { display: none; }
-
-/* "Make a card for me": one simple step, sized for older eyes and hands. */
-.ai-simple h2 { font-size: clamp(1.9rem, 4vw, 2.5rem); }
-.ai-simple .ai-panel-intro { max-width: 620px; color: #5f5652; font-size: 1.05rem; line-height: 1.6; }
-.ai-simple .ai-form { gap: 26px; }
-.ai-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
-.ai-choices legend { margin-bottom: 12px; padding: 0; color: #3f3835; font-size: 1.1rem; font-weight: 600; }
-.ai-choice-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.ai-choice { min-height: 56px; padding: 0 16px; border: 2px solid #e1d9d4; border-radius: 12px; background: #fff; color: #4d4643; font-size: 1.05rem; font-weight: 600; }
-.ai-choice.is-selected { border-color: #b7502f; background: #fff1ec; color: #9c4527; }
-.ai-look-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.ai-look { display: grid; gap: 8px; padding: 8px 8px 12px; border: 2px solid #e1d9d4; border-radius: 14px; background: #fff; color: #4d4643; font-size: 1.02rem; font-weight: 600; text-align: center; }
-.ai-look img { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; object-fit: cover; object-position: center 72%; }
-.ai-look.is-selected { border-color: #b7502f; background: #fff1ec; color: #9c4527; }
-/* Hover only hints, and only with a real mouse, so a tapped choice never looks selected by mistake. */
-@media (hover: hover) {
-  .ai-choice:not(.is-selected):not(:disabled):hover, .ai-look:not(.is-selected):not(:disabled):hover { border-color: #d9a48f; }
-}
-.ai-choice:focus-visible, .ai-look:focus-visible { outline: 3px solid #b7502f; outline-offset: 2px; }
-.ai-choice:disabled, .ai-look:disabled { cursor: not-allowed; opacity: .6; }
-.ai-simple .ai-form label { gap: 10px; color: #3f3835; font-size: 1.05rem; }
-.ai-simple .ai-form input { min-height: 54px; font-size: 1.05rem; }
-.ai-simple .ai-hint { margin: 10px 0 0; font-size: .9rem; }
-.ai-big-button { min-height: 58px; padding: 0 32px; font-size: 1.1rem; }
-.ai-simple .ai-status { color: #3f3835; font-size: 1.05rem; font-weight: 500; }
-.ai-simple .ai-remaining { margin: -14px 0 0; font-size: .92rem; }
-.ai-simple .ai-privacy { font-size: .85rem; }
-.ai-simple .ai-replace-note { font-size: .95rem; }
-/* On narrow screens each look is a full-width row, so names never get squeezed. */
-@media (max-width: 560px) {
-  .ai-look-row { grid-template-columns: 1fr; gap: 10px; }
-  .ai-look { grid-template-columns: 76px 1fr; align-items: center; gap: 14px; padding: 8px 14px 8px 8px; font-size: 1.05rem; text-align: left; }
-  .ai-look img { aspect-ratio: 1; }
-}
-@media (max-width: 420px) {
-  .ai-big-button { width: 100%; }
-}

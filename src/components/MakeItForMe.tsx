@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   aiLooks,
-  aiRecipients,
   describeAiError,
   fetchAiStatus,
   generateAiIllustration,
@@ -9,7 +8,6 @@ import {
   toneForRecipient,
   type AiCardSuggestion,
   type AiErrorCode,
-  type AiLook,
   type AiRecipient,
 } from '../ai/aiClient'
 import { loadTurnstile, type TurnstileApi } from '../ai/turnstile'
@@ -18,18 +16,21 @@ import type { Occasion } from '../data/templates'
 export type AiApplied = AiCardSuggestion & { occasion: Occasion }
 export type AiIllustrationApplied = { blob: Blob; occasion: Occasion }
 
-type AiCreatePanelProps = {
+type MakeItForMeProps = {
   apiUrl: string
   turnstileSiteKey: string
-  /** The occasion chosen on the main page (step 01). */
+  /** The design set for the chosen occasion: what the Worker designs for. */
   occasion: Occasion
+  /** What the person picked in steps 1 and 2, in their own words, e.g. "Get well soon" for "Mom". */
+  occasionLabel: string
+  recipient: AiRecipient
+  recipientLabel: string
   /** True when the editor already holds the user's own words, so we can warn before replacing them. */
   hasTypedMessage: boolean
   onApply: (result: AiApplied) => void
   onApplyMessage: (message: string) => void
   /** Called with a validated JPEG; the app shows it from a local blob: URL. */
   onApplyIllustration: (result: AiIllustrationApplied) => void
-  onClose: () => void
 }
 
 type Availability = 'checking' | 'available' | 'unavailable' | 'limit-reached'
@@ -38,15 +39,16 @@ type Phase = 'idle' | 'writing' | 'painting'
 const TOKEN_WAIT_MS = 15_000
 
 /**
- * "Make a card for me": one simple step for anyone. Pick who it's for and a
- * look, optionally add a detail, and press one button. It writes the message,
- * then paints a matching picture when one is available today; otherwise the
- * card keeps a Little Hello design. Everything lands in the normal editor.
+ * "Make it for me": no questions. It uses who and what from steps 1 and 2,
+ * writes the message, then adds a matching picture when one is available
+ * today; otherwise the card keeps a Little Hello design. It starts by itself
+ * once ready, unless that would replace words the person typed.
  */
-export function AiCreatePanel({ apiUrl, turnstileSiteKey, occasion, hasTypedMessage, onApply, onApplyMessage, onApplyIllustration, onClose }: AiCreatePanelProps) {
-  const [recipient, setRecipient] = useState<AiRecipient>('friend')
-  const [look, setLook] = useState<AiLook>('botanical')
-  const [details, setDetails] = useState('')
+export function MakeItForMe({ apiUrl, turnstileSiteKey, occasion, occasionLabel, recipient, recipientLabel, hasTypedMessage, onApply, onApplyMessage, onApplyIllustration }: MakeItForMeProps) {
+  // Each card gets one of the three house looks, so cards vary while staying on theme.
+  const [look] = useState(() => aiLooks[Math.floor(Math.random() * aiLooks.length)].id)
+  const [confirmedReplace, setConfirmedReplace] = useState(!hasTypedMessage)
+  const startedRef = useRef(false)
   const [availability, setAvailability] = useState<Availability>('checking')
   const [remaining, setRemaining] = useState<number | null>(null)
   const [creativeRemaining, setCreativeRemaining] = useState(0)
@@ -129,6 +131,15 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, occasion, hasTypedMess
   // Cancel any request still running if the panel closes.
   useEffect(() => () => requestRef.current?.abort(), [])
 
+  // Start by itself as soon as AI is available (and the person agreed to replace their words, if any).
+  useEffect(() => {
+    if (availability !== 'available' || !confirmedReplace || startedRef.current) return
+    startedRef.current = true
+    void makeCard()
+    // makeCard reads the latest props when it runs; this should only fire once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availability, confirmedReplace])
+
   /** Takes the current single-use token (or waits for the next one) and asks Turnstile for a fresh one straight away. */
   function nextToken(signal: AbortSignal): Promise<string | null> {
     const take = (token: string) => {
@@ -172,7 +183,7 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, occasion, hasTypedMess
     }
     const result = await generateAiMessage(
       apiUrl,
-      { turnstileToken: token, occasion, recipient, tone: toneForRecipient(recipient, occasion), style: look, personalMessage: '', extraInstructions: details.trim() },
+      { turnstileToken: token, occasion, recipient, tone: toneForRecipient(recipient, occasion), style: look, personalMessage: '', extraInstructions: `Card for: ${recipientLabel}. Occasion: ${occasionLabel}.`.slice(0, 200) },
       signal,
     )
     if (!result.ok) {
@@ -246,74 +257,41 @@ export function AiCreatePanel({ apiUrl, turnstileSiteKey, occasion, hasTypedMess
         : availability === 'limit-reached'
           ? 'You’ve made today’s AI cards. Come back tomorrow, or make a card yourself below.'
           : '')
-  const assetBase = import.meta.env.BASE_URL
 
   return (
-    <section className="ai-panel ai-simple" aria-labelledby="ai-panel-title" aria-busy={busy}>
-      <div className="ai-panel-heading">
-        <h2 id="ai-panel-title">Make a card for me</h2>
-        <button className="ai-panel-close" type="button" onClick={onClose} aria-label="Close Make a card for me">×</button>
-      </div>
-      <p className="ai-panel-intro">Choose who it’s for and a look, then press the button. We’ll write the message and add a picture. You can change anything afterwards.</p>
-
-      <form className="ai-form" aria-label="Make a card with AI" onSubmit={(event) => { event.preventDefault(); void makeCard() }}>
-        <fieldset className="ai-choices">
-          <legend>A {occasion.toLowerCase()} card for…</legend>
-          <div className="ai-choice-row">
-            {aiRecipients.map((item) => (
-              <button key={item.id} type="button" className={`ai-choice ${recipient === item.id ? 'is-selected' : ''}`} aria-pressed={recipient === item.id} onClick={() => setRecipient(item.id)} disabled={busy}>
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <p className="ai-hint">For a different occasion, choose it in step 01 below.</p>
-        </fieldset>
-
-        <fieldset className="ai-choices">
-          <legend>Choose a look</legend>
-          <div className="ai-look-row">
-            {aiLooks.map((item) => (
-              <button key={item.id} type="button" className={`ai-look ${look === item.id ? 'is-selected' : ''}`} aria-pressed={look === item.id} onClick={() => setLook(item.id)} disabled={busy}>
-                <img src={`${assetBase}artwork/${item.example}`} alt="" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <label className="ai-form-wide">
-          <span>Anything to mention? <small>optional</small></span>
-          <input value={details} maxLength={200} onChange={(event) => setDetails(event.target.value)} placeholder="For example: turning 80, loves roses" disabled={busy} />
-        </label>
-
-        {hasTypedMessage && !hasResult && <p className="ai-replace-note">This will replace the message you’ve already written.</p>}
-        <div ref={widgetContainerRef} className="ai-turnstile" />
-        {verificationError && online && <p className="ai-replace-note">Something didn’t load. Please refresh the page and try again.</p>}
-
-        <div className="ai-actions">
-          {/* Distinct keys matter: Stop finishes its work during the click, and if React
-              reused this button as the submit button, the same click would start a new card. */}
-          {busy ? (
-            <button key="stop" className="secondary-action ai-big-button" type="button" onClick={() => requestRef.current?.abort()}>Stop</button>
-          ) : (
-            <>
-              <button key="make" className="primary-action ai-big-button" type="submit" disabled={!ready}>
-                {hasResult ? 'Make a new card' : 'Make my card'}
-              </button>
-              {hasResult && (
-                <button key="another" className="secondary-action ai-big-button" type="button" onClick={() => void tryAnotherMessage()} disabled={!ready}>Try another message</button>
-              )}
-            </>
-          )}
+    <div className="make-for-me" aria-busy={busy}>
+      <p className="make-for-me-summary">
+        <span aria-hidden="true">✦</span> A <strong>{occasionLabel.toLowerCase()}</strong> card for <strong>{recipientLabel.toLowerCase()}</strong>, with a message and a picture made for you.
+      </p>
+      {!confirmedReplace && (
+        <div className="message-card-confirm" role="group" aria-label="Replace your message?">
+          <p>This will replace the message you wrote. Make a new one for you?</p>
+          <button type="button" className="primary-action ai-big-button" onClick={() => setConfirmedReplace(true)}>Yes, make it for me</button>
         </div>
-        <p className="ai-status" role="status" aria-live="polite">{statusText}</p>
-        {remaining !== null && availability !== 'unavailable' && online && (
-          <p className="ai-remaining">You can make {remaining} more {remaining === 1 ? 'card' : 'cards'} with AI today.</p>
-        )}
-        <p className="ai-privacy">
-          <span aria-hidden="true">⌁</span> Your choices are sent to Cloudflare’s AI service to write and paint your card. Names aren’t sent, and Little Hello doesn’t keep anything. Pictures appear on the downloaded card; shared links use a Little Hello design.
-        </p>
-      </form>
-    </section>
+      )}
+      <div ref={widgetContainerRef} className="ai-turnstile" />
+      {verificationError && online && <p className="ai-replace-note">Something didn’t load. Please refresh the page and try again.</p>}
+      <p className="ai-status" role="status" aria-live="polite">{statusText || (availability === 'checking' && online ? 'Getting ready…' : '')}</p>
+      <div className="ai-actions">
+        {/* Distinct keys matter: Stop finishes its work during the click, and if React
+            reused this button for another one, the same click could start a new card. */}
+        {busy ? (
+          <button key="stop" className="secondary-action ai-big-button" type="button" onClick={() => requestRef.current?.abort()}>Stop</button>
+        ) : hasResult ? (
+          <>
+            <button key="another" className="secondary-action ai-big-button" type="button" onClick={() => void tryAnotherMessage()} disabled={!ready}>Try another message</button>
+            <button key="new" className="secondary-action ai-big-button" type="button" onClick={() => void makeCard()} disabled={!ready}>Make a new card</button>
+          </>
+        ) : availability === 'available' && confirmedReplace && !status.startsWith('Writing') ? (
+          <button key="retry" className="primary-action ai-big-button" type="button" onClick={() => void makeCard()} disabled={!ready}>Try again</button>
+        ) : null}
+      </div>
+      {remaining !== null && availability !== 'unavailable' && online && (
+        <p className="ai-remaining">You can make {remaining} more {remaining === 1 ? 'card' : 'cards'} with AI today.</p>
+      )}
+      <p className="ai-privacy">
+        <span aria-hidden="true">⌁</span> Your choices are sent to Cloudflare’s AI service to write your card. Names aren’t sent, and Little Hello doesn’t keep anything. Pictures appear on the downloaded card; shared links use a Little Hello design.
+      </p>
+    </div>
   )
 }

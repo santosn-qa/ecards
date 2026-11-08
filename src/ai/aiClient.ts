@@ -1,13 +1,6 @@
 import { cardTemplates, type Occasion } from '../data/templates'
 import { messageFonts, type MessageFontId } from '../data/typography'
 
-export const aiRecipients = [
-  { id: 'friend', label: 'A friend' },
-  { id: 'family', label: 'Family' },
-  { id: 'partner', label: 'My partner' },
-  { id: 'colleague', label: 'A colleague' },
-] as const
-
 /** The three looks, matching Little Hello's own artwork collections. `example` is a bundled artwork shown on the choice. */
 export const aiLooks = [
   { id: 'botanical', label: 'Botanical', example: 'botanical-pressed-bouquet.jpg' },
@@ -15,7 +8,8 @@ export const aiLooks = [
   { id: 'painterly', label: 'Painterly', example: 'artistic-midnight-bouquet.jpg' },
 ] as const
 
-export type AiRecipient = (typeof aiRecipients)[number]['id']
+/** The Worker's recipient categories. The app maps the person chosen in step 1 to one of these. */
+export type AiRecipient = 'friend' | 'family' | 'partner' | 'colleague' | 'someone'
 export type AiLook = (typeof aiLooks)[number]['id']
 export type AiTone = 'sweet' | 'funny' | 'heartfelt' | 'playful' | 'encouraging' | 'romantic' | 'formal'
 
@@ -25,6 +19,19 @@ export function toneForRecipient(recipient: AiRecipient, occasion: Occasion): Ai
   if (recipient === 'colleague') return 'formal'
   if (occasion === 'Congratulations') return 'encouraging'
   return recipient === 'family' ? 'sweet' : 'heartfelt'
+}
+
+const categoryForGroup: Record<string, AiRecipient> = {
+  family: 'family',
+  romantic: 'partner',
+  friends: 'friend',
+  professional: 'colleague',
+  other: 'someone',
+}
+
+/** Maps the recipient groups chosen in step 1 (e.g. ['family'] for Mom) to the Worker's category. */
+export function aiRecipientForGroups(groups: string[]): AiRecipient {
+  return categoryForGroup[groups[0] ?? 'other'] ?? 'someone'
 }
 
 export type AiMessageRequest = {
@@ -210,6 +217,6 @@ export function describeAiError(error: AiErrorCode, retryAfterSeconds?: number):
     case 'network':
       return 'We couldn’t reach the AI helper. Check your connection and try again.'
     default:
-      return 'The AI helper couldn’t write a card this time. Please try again, or pick a sample message below.'
+      return 'The AI helper couldn’t write a card this time. Please try again, or choose a ready-made message instead.'
   }
 }

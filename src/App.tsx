@@ -3,9 +3,8 @@ import { decodeCardHash, createCardUrl, routeCardHash, type DecodeResult } from 
 import { CardRenderer } from './components/CardRenderer'
 import { CardArtwork } from './components/CardArtwork'
 import { downloadCardPng } from './components/downloadCardPng'
-import { cardTemplates, occasions, type CardDraft, type Occasion } from './data/templates'
+import { cardTemplates, type CardDraft, type Occasion } from './data/templates'
 import { getMessageFont, messageFonts, type MessageFontId } from './data/typography'
-import { getSampleMessages } from './data/sampleMessages'
 import { SUPPORT_CONFIG } from './config/support'
 import { readDismissedAt, recordDismissal, shouldShowSupportPrompt } from './support/supportPrompt'
 import { SupportPanel } from './components/SupportPanel'
@@ -13,7 +12,13 @@ import { SupportFooterLink } from './components/SupportFooterLink'
 import { useSentCounter } from './counter/useSentCounter'
 import { SentCounter } from './components/SentCounter'
 import { AI_CONFIG } from './config/ai'
-import { AiCreatePanel, type AiApplied, type AiIllustrationApplied } from './components/AiCreatePanel'
+import { MakeItForMe, type AiApplied, type AiIllustrationApplied } from './components/MakeItForMe'
+import { ChoiceStep } from './components/ChoiceStep'
+import { MessageChooser } from './components/MessageChooser'
+import { aiRecipientForGroups } from './ai/aiClient'
+import { getOccasion, occasionGroups, occasionLibrary, popularOccasions } from './data/occasionLibrary'
+import { choiceForRecipient, getRecipient, popularRecipientChoices, recipientGroups, recipients, type RecipientChoice } from './data/recipientLibrary'
+import { searchOccasions, searchRecipients } from './messages/findMessages'
 import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
@@ -128,12 +133,17 @@ function App() {
   })
   const sharedDecodeGenerationRef = useRef(0)
   const [hashPath, setHashPath] = useState(() => window.location.hash)
-  const [occasion, setOccasion] = useState<Occasion>('Birthday')
+  // Steps 1–3: who, what, and how. Nothing is required: someone can skip
+  // straight to writing, and the design step then shows Birthday designs.
+  const [recipientChoiceId, setRecipientChoiceId] = useState<string | null>(null)
+  const [occasionId, setOccasionId] = useState<string | null>(null)
+  const [howChoice, setHowChoice] = useState<'ai' | 'library' | 'write' | null>(null)
+  const occasionEntry = getOccasion(occasionId ?? 'birthday')!
+  const occasion: Occasion = occasionEntry.designs
   const [selectedTemplateId, setSelectedTemplateId] = useState(cardTemplates[0].id)
   const [draft, setDraft] = useState<CardDraft>(emptyDraft)
   const [notice, setNotice] = useState('')
   const [messageIsTyped, setMessageIsTyped] = useState(false)
-  const [confirmingSampleOverwrite, setConfirmingSampleOverwrite] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [showSupportPanel, setShowSupportPanel] = useState(false)
   const { count: sentCount, bump: bumpSentCounter } = useSentCounter()
@@ -142,7 +152,6 @@ function App() {
   const shareUrlGenerationRef = useRef(0)
   const fontOptionsRef = useRef<HTMLDivElement>(null)
   const editorPanelRef = useRef<HTMLDivElement>(null)
-  const [showAiPanel, setShowAiPanel] = useState(false)
   const [aiAssisted, setAiAssisted] = useState(false)
   // An AI illustration lives only in this tab, as a local blob: URL. It is never
   // uploaded or put in share links, which keep using the chosen template.
@@ -262,15 +271,6 @@ function App() {
     aiArtUrlRef.current = url
     setAiArt({ url, occasion: result.occasion })
     setUseAiArt(true)
-    if (result.occasion !== occasion) {
-      // Keep the user's words, but show designs for the illustration's occasion.
-      setOccasion(result.occasion)
-      const firstTemplate = cardTemplates.find((template) => template.occasion === result.occasion)
-      if (firstTemplate) {
-        setSelectedTemplateId(firstTemplate.id)
-        setDraft((current) => ({ ...current, messageFont: current.messageFont ?? firstTemplate.typography.defaultMessageFont }))
-      }
-    }
   }
 
   if (sharedResult && !sharedResult.ok) {
@@ -288,18 +288,57 @@ function App() {
     )
   }
 
-  function handleOccasionChange(nextOccasion: Occasion) {
-    setOccasion(nextOccasion)
-    const firstTemplate = cardTemplates.find((template) => template.occasion === nextOccasion)
-    if (firstTemplate) {
-      setSelectedTemplateId(firstTemplate.id)
-      setDraft((current) => ({ ...current, message: '', messageFont: firstTemplate.typography.defaultMessageFont }))
-      setNotice('')
-      setMessageIsTyped(false)
-      setConfirmingSampleOverwrite(false)
-      setAiAssisted(false)
+  const recipientChoice: RecipientChoice | null = recipientChoiceId
+    ? popularRecipientChoices.find(({ id }) => id === recipientChoiceId) ?? (getRecipient(recipientChoiceId) ? choiceForRecipient(getRecipient(recipientChoiceId)!) : null)
+    : null
+  const recipientGroupsChosen = (recipientChoice?.recipientIds ?? []).flatMap((id) => getRecipient(id)?.group ?? [])
+
+  function handleOccasionChange(nextOccasionId: string) {
+    const next = getOccasion(nextOccasionId)
+    if (!next) return
+    setOccasionId(nextOccasionId)
+    setNotice('')
+    if (next.designs !== occasion) {
+      // Show designs that fit the new occasion. The message is kept: never
+      // throw away words without asking.
+      const firstTemplate = cardTemplates.find((template) => template.occasion === next.designs)
+      if (firstTemplate) {
+        setSelectedTemplateId(firstTemplate.id)
+        setDraft((current) => ({ ...current, messageFont: firstTemplate.typography.defaultMessageFont }))
+      }
       clearAiArt()
     }
+  }
+
+  function chooseHow(next: 'ai' | 'library' | 'write') {
+    setHowChoice(next)
+    if (next === 'write') {
+      editorPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      document.getElementById('card-message')?.focus({ preventScroll: true })
+    }
+  }
+
+  function applyLibraryMessage(text: string) {
+    updateDraft('message', text)
+    // Treated like the person's own words from here on: editable, and protected from silent replacement.
+    setMessageIsTyped(true)
+    setAiAssisted(false)
+    editorPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function startOver() {
+    const hasWork = draft.message.trim() || draft.to.trim() || draft.from.trim()
+    if (hasWork && !window.confirm('Start over? This clears your card so you can begin again.')) return
+    setRecipientChoiceId(null)
+    setOccasionId(null)
+    setHowChoice(null)
+    setSelectedTemplateId(cardTemplates[0].id)
+    setDraft(emptyDraft)
+    setMessageIsTyped(false)
+    setAiAssisted(false)
+    setNotice('')
+    clearAiArt()
+    document.getElementById('who-step')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // An AI suggestion lands in the normal editor, exactly as if the user had
@@ -307,12 +346,10 @@ function App() {
   // stays editable and shares/downloads through the existing renderer.
   function applyAiCard(result: AiApplied) {
     if (aiArt && aiArt.occasion !== result.occasion) clearAiArt()
-    setOccasion(result.occasion)
     setSelectedTemplateId(result.templateId)
     setDraft((current) => ({ ...current, message: result.message, messageFont: result.messageFont }))
     // Protect the suggestion from being silently replaced by a sample chip.
     setMessageIsTyped(true)
-    setConfirmingSampleOverwrite(false)
     setNotice('')
     setAiAssisted(result.source === 'ai')
     editorPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -321,7 +358,6 @@ function App() {
   function applyAiMessage(message: string) {
     updateDraft('message', message)
     setMessageIsTyped(true)
-    setConfirmingSampleOverwrite(false)
     setAiAssisted(true)
   }
 
@@ -333,32 +369,17 @@ function App() {
   function handleMessageChange(value: string) {
     updateDraft('message', value)
     setMessageIsTyped(value.trim().length > 0)
-    setConfirmingSampleOverwrite(false)
   }
 
   function clearMessage() {
     updateDraft('message', '')
     setMessageIsTyped(false)
-    setConfirmingSampleOverwrite(false)
     setAiAssisted(false)
   }
 
   function confirmOrWarnEmptyMessage(actionLabel: string) {
     if (draft.message.trim()) return true
     return window.confirm(`Your message is empty — ${actionLabel} anyway?`)
-  }
-
-  function applySampleMessage(text: string) {
-    const hasTypedDraft = messageIsTyped && draft.message.trim().length > 0
-    if (hasTypedDraft && !confirmingSampleOverwrite) {
-      setConfirmingSampleOverwrite(true)
-      setNotice('This will replace your message — click the sample again to confirm.')
-      return
-    }
-    updateDraft('message', text)
-    setMessageIsTyped(false)
-    setConfirmingSampleOverwrite(false)
-    setAiAssisted(false)
   }
 
   function maybeShowSupportPanel() {
@@ -427,43 +448,94 @@ function App() {
           <div className="hero-copy">
             <p className="eyebrow">A small gesture, made special</p>
             <h1 id="welcome-title">Make someone’s day.</h1>
-            <p className="hero-text">Choose a beautiful design, add your words, and share a little hello. No account needed.</p>
+            <p className="hero-text">Choose who it’s for and what to say, and we’ll help with the rest. No account needed.</p>
             <SentCounter count={sentCount} />
-            {AI_CONFIG.enabled && !showAiPanel && (
-              <button className="primary-action ai-entry" type="button" onClick={() => setShowAiPanel(true)}>
-                <span aria-hidden="true">✦</span> Make a card for me
-              </button>
-            )}
+            <a className="primary-action hero-start" href="#who-step" onClick={(event) => { event.preventDefault(); document.getElementById('who-step')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
+              Create Card
+            </a>
           </div>
           <div className="hero-sparkles" aria-hidden="true"><span>✦</span><span>✧</span><span>·</span></div>
         </section>
-        {AI_CONFIG.enabled && showAiPanel && AI_CONFIG.apiUrl && AI_CONFIG.turnstileSiteKey && (
-          <AiCreatePanel
-            apiUrl={AI_CONFIG.apiUrl}
-            turnstileSiteKey={AI_CONFIG.turnstileSiteKey}
-            occasion={occasion}
-            hasTypedMessage={draft.message.trim().length > 0}
-            onApply={applyAiCard}
-            onApplyMessage={applyAiMessage}
-            onApplyIllustration={applyAiIllustration}
-            onClose={() => setShowAiPanel(false)}
-          />
-        )}
-        <section className="step-section" aria-labelledby="occasion-title">
+        <ChoiceStep
+          id="who-step"
+          step="01 of 05"
+          title="Who would you like to send a card to?"
+          popular={popularRecipientChoices}
+          groups={recipientGroups.map((group) => ({ label: group.label, items: recipients.filter((item) => item.group === group.id) }))}
+          selectedId={recipientChoiceId}
+          selectedLabel={recipientChoice?.label}
+          onSelect={setRecipientChoiceId}
+          search={searchRecipients}
+          searchLabel="Search for someone"
+          searchExample="aunt"
+        />
+        <ChoiceStep
+          id="occasion-step"
+          step="02 of 05"
+          title="What would you like to say?"
+          popular={popularOccasions}
+          groups={occasionGroups.map((group) => ({ label: group.label, items: occasionLibrary.filter((item) => item.group === group.id && !item.popular) })).filter((group) => group.items.length > 0)}
+          selectedId={occasionId}
+          selectedLabel={occasionId ? occasionEntry.label : undefined}
+          onSelect={handleOccasionChange}
+          search={searchOccasions}
+          searchLabel="Search for an occasion"
+          searchExample="wedding"
+        />
+        <section className="step-section how-step" aria-labelledby="how-title" id="how-step">
           <div className="section-heading">
-            <div><p className="step-label">01 <span>of 03</span></p><h2 id="occasion-title">What’s the occasion?</h2></div>
-            <span className="section-hint">Pick one to get started</span>
+            <div><p className="step-label">03 of 05</p><h2 id="how-title">How would you like to make it?</h2></div>
           </div>
-          <div className="occasion-list" role="list" aria-label="Card occasions">
-            {occasions.map((item) => (
-              <button className={`occasion-chip ${occasion === item ? 'is-selected' : ''}`} key={item} type="button" onClick={() => handleOccasionChange(item)} aria-pressed={occasion === item}>{item}</button>
-            ))}
+          <div className="how-options" role="group" aria-labelledby="how-title">
+            {AI_CONFIG.enabled && (
+              <button type="button" className={`how-option ${howChoice === 'ai' ? 'is-selected' : ''}`} aria-pressed={howChoice === 'ai'} onClick={() => chooseHow('ai')}>
+                <span className="how-option-title"><span aria-hidden="true">✦ </span>Make it for me</span>
+                <span className="how-option-text">We’ll write the message and add a picture.</span>
+              </button>
+            )}
+            <button type="button" className={`how-option ${howChoice === 'library' ? 'is-selected' : ''}`} aria-pressed={howChoice === 'library'} onClick={() => chooseHow('library')}>
+              <span className="how-option-title">Choose a message</span>
+              <span className="how-option-text">Pick from ready-made messages.</span>
+            </button>
+            <button type="button" className={`how-option ${howChoice === 'write' ? 'is-selected' : ''}`} aria-pressed={howChoice === 'write'} onClick={() => chooseHow('write')}>
+              <span className="how-option-title">Write my own</span>
+              <span className="how-option-text">Type your own words.</span>
+            </button>
           </div>
+          {howChoice === 'ai' && AI_CONFIG.apiUrl && AI_CONFIG.turnstileSiteKey && (
+            occasionId ? (
+              // No key on purpose: changing who or what must not silently make (and use up) another card.
+              // It starts by itself once; after that the person presses "Make a new card".
+              <MakeItForMe
+                apiUrl={AI_CONFIG.apiUrl}
+                turnstileSiteKey={AI_CONFIG.turnstileSiteKey}
+                occasion={occasion}
+                occasionLabel={occasionEntry.label}
+                recipient={aiRecipientForGroups(recipientGroupsChosen)}
+                recipientLabel={recipientChoice && recipientChoice.id !== 'other' ? recipientChoice.label : 'Someone special'}
+                hasTypedMessage={messageIsTyped && draft.message.trim().length > 0}
+                onApply={applyAiCard}
+                onApplyMessage={applyAiMessage}
+                onApplyIllustration={applyAiIllustration}
+              />
+            ) : (
+              <p className="how-hint">First, choose what you’d like to say in step 02 above.</p>
+            )
+          )}
+          {howChoice === 'library' && (
+            <MessageChooser
+              key={`${recipientChoiceId ?? 'anyone'}-${occasionId ?? 'all'}`}
+              recipientIds={recipientChoice?.recipientIds ?? []}
+              occasionId={occasionId}
+              hasTypedMessage={messageIsTyped && draft.message.trim().length > 0}
+              onUse={applyLibraryMessage}
+            />
+          )}
         </section>
         <section className="workspace" aria-label="Card creator">
           <div className="design-column">
             <div className="section-heading compact">
-              <div><p className="step-label">02 <span>of 03</span></p><h2>Choose a design</h2></div>
+              <div><p className="step-label">04 of 05</p><h2>Choose a design</h2></div>
               <span className="section-hint">{visibleTemplates.length} designs</span>
             </div>
             <div className="template-grid">
@@ -477,7 +549,7 @@ function App() {
               ))}
             </div>
             <div className="editor-panel" ref={editorPanelRef}>
-              <div className="section-heading compact"><div><p className="step-label">03 <span>of 03</span></p><h2>Write your message</h2></div></div>
+              <div className="section-heading compact"><div><p className="step-label">05 of 05</p><h2>Your message</h2></div></div>
               <div className="form-fields">
                 <label>
                   <span className="field-label-row">
@@ -498,14 +570,9 @@ function App() {
                       )}
                     </span>
                   </div>
-                  <p className="sample-chips-hint">Need a starting point? Try one, or just write your own.</p>
-                  <div className="sample-chips" role="list" aria-label="Sample messages">
-                    {getSampleMessages(occasion).map((sample) => (
-                      <button className="sample-chip" key={sample.tone} type="button" onClick={() => applySampleMessage(sample.text)}>
-                        {sample.tone}
-                      </button>
-                    ))}
-                  </div>
+                  <button type="button" className="change-message-button" onClick={() => { chooseHow('library'); document.getElementById('how-step')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
+                    {draft.message ? 'Change Message' : 'Choose a ready-made message'}
+                  </button>
                   {aiAssisted && <p className="ai-assisted-note"><span aria-hidden="true">✦</span> Written with AI help. Edit anything you like.</p>}
                   <textarea id="card-message" aria-label={`Your message ${draft.message.length}/500`} value={draft.message} maxLength={500} onChange={(event) => handleMessageChange(event.target.value)} placeholder="Write something from the heart..." rows={5} />
                 </div>
@@ -552,6 +619,7 @@ function App() {
                 <input readOnly aria-label="Share link" value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
               </label>
               <p className="action-status" role="status" aria-live="polite">{notice}</p>
+              <button type="button" className="secondary-action start-over-button" onClick={startOver}>Start Over</button>
               {showSupportPanel && <SupportPanel onDismiss={dismissSupportPanel} />}
             </div>
           </div>

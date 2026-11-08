@@ -150,8 +150,11 @@ test('secondary text and the primary Share Card button meet WCAG AA contrast aga
 
   const bodyBackground = await rgbOf(page.locator('html'), 'backgroundColor')
 
-  const sectionHint = page.getByText('Pick one to get started')
-  await expect(contrastRatio(await rgbOf(sectionHint), bodyBackground)).toBeGreaterThanOrEqual(4.5)
+  const stepHint = page.getByText('Type your own words.')
+  const hintBackground = await rgbOf(page.getByRole('button', { name: /Write my own/ }), 'backgroundColor')
+  await expect(contrastRatio(await rgbOf(stepHint), hintBackground)).toBeGreaterThanOrEqual(4.5)
+  const stepLabel = page.getByText('01 of 05')
+  await expect(contrastRatio(await rgbOf(stepLabel), bodyBackground)).toBeGreaterThanOrEqual(4.5)
 
   const shareButton = page.getByRole('button', { name: 'Share Card' })
   const buttonBackground = await rgbOf(shareButton, 'backgroundColor')
@@ -186,7 +189,7 @@ test('on mobile, shows the live preview after the message step instead of before
   await page.goto('/')
 
   const designHeading = page.getByRole('heading', { name: 'Choose a design' })
-  const messageHeading = page.getByRole('heading', { name: 'Write your message' })
+  const messageHeading = page.getByRole('heading', { name: 'Your message' })
   const preview = page.getByRole('complementary', { name: 'Live card preview' })
 
   const [designBox, messageBox, previewBox] = await Promise.all([
@@ -211,7 +214,7 @@ test('has no horizontal overflow on a narrow Android viewport', async ({ browser
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Make someone’s day.' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Love' }).click()
+  await page.getByRole('button', { name: 'I love you' }).click()
   await page.getByRole('button', { name: 'Choose Love letter design' }).click()
   await page.getByRole('textbox', { name: /Your message/ }).fill('Every day with you feels like a page from a favorite story.')
 
@@ -249,57 +252,21 @@ test('creates a card and updates the live preview', async ({ page }) => {
   await expect(preview).toContainText('— Nouri')
 })
 
-test('fills the message from a sample chip, scoped to the selected occasion', async ({ page }) => {
-  await page.goto('/')
-
-  const preview = page.getByRole('complementary', { name: 'Live card preview' })
-  const messageField = page.getByRole('textbox', { name: /Your message/ })
-
-  await page.getByRole('button', { name: 'Heartfelt' }).click()
-  await expect(messageField).toHaveValue(/Wishing you a birthday/)
-  await expect(preview).toContainText('Wishing you a birthday')
-
-  await expect(page.getByRole('button', { name: 'Formal' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Thank you' }).click()
-  await expect(page.getByRole('button', { name: 'Formal' })).toBeVisible()
-
-  await messageField.fill('typed text should be protected')
-  await page.getByRole('button', { name: 'Short & sweet' }).click()
-  await expect(messageField).toHaveValue('typed text should be protected')
-  await expect(page.getByRole('status')).toContainText(/replace/i)
-
-  await page.getByRole('button', { name: 'Short & sweet' }).click()
-  await expect(messageField).toHaveValue('Just a little note to say... thank you. Truly.')
-})
-
-test('does not warn when browsing between sample chips with no typed draft to lose', async ({ page }) => {
-  await page.goto('/')
-
-  const messageField = page.getByRole('textbox', { name: /Your message/ })
-
-  await page.getByRole('button', { name: 'Heartfelt' }).click()
-  await expect(messageField).toHaveValue(/Wishing you a birthday/)
-
-  await page.getByRole('button', { name: 'Short & sweet' }).click()
-  await expect(messageField).toHaveValue('Happy birthday! Hope your day is full of cake, laughter, and everything you love.')
-  await expect(page.getByRole('status')).not.toContainText(/replace/i)
-})
-
-test('clears the message when switching occasion, and offers a clear button while there is text', async ({ page }) => {
+test('keeps the message when switching occasion, and offers a clear button while there is text', async ({ page }) => {
   await page.goto('/')
 
   const messageField = page.getByRole('textbox', { name: /Your message/ })
   const clearButton = page.getByRole('button', { name: 'Clear' })
 
   await expect(clearButton).toHaveCount(0)
-  await messageField.fill('A note for Birthday')
+  await messageField.fill('A note I wrote myself')
   await expect(clearButton).toBeVisible()
 
-  await page.getByRole('button', { name: 'Love' }).click()
-  await expect(messageField).toHaveValue('')
-  await expect(clearButton).toHaveCount(0)
+  // Words are never thrown away without asking; only the designs change.
+  await page.getByRole('button', { name: 'I love you' }).click()
+  await expect(messageField).toHaveValue('A note I wrote myself')
+  await expect(page.getByRole('button', { name: 'Choose Love letter design' })).toBeVisible()
 
-  await messageField.fill('A note for Love')
   await clearButton.click()
   await expect(messageField).toHaveValue('')
   await expect(clearButton).toHaveCount(0)
