@@ -40,7 +40,7 @@ function SiteHeader({ navHref = '#/guide', navLabel = 'How to guide' }: SiteHead
 function SiteFooter() {
   return (
     <footer className="site-footer">
-      <span>Made for meaningful moments. Works offline after your first visit.</span>
+      <span>Made for meaningful moments.</span>
       <span>
         Created by <a href="https://www.linkedin.com/in/nourileesantos/" target="_blank" rel="noopener noreferrer">Nourilee Santos</a>
         {SUPPORT_CONFIG.enabled && <> · <SupportFooterLink /></>}
