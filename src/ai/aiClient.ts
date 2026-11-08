@@ -6,39 +6,33 @@ export const aiRecipients = [
   { id: 'family', label: 'Family' },
   { id: 'partner', label: 'My partner' },
   { id: 'colleague', label: 'A colleague' },
-  { id: 'someone', label: 'Someone special' },
 ] as const
 
-export const aiTones = [
-  { id: 'heartfelt', label: 'Heartfelt' },
-  { id: 'sweet', label: 'Sweet' },
-  { id: 'funny', label: 'Funny' },
-  { id: 'playful', label: 'Playful' },
-  { id: 'encouraging', label: 'Encouraging' },
-  { id: 'romantic', label: 'Romantic' },
-  { id: 'formal', label: 'Formal' },
-] as const
-
-export const aiStyles = [
-  { id: 'watercolor', label: 'Watercolor' },
-  { id: 'floral', label: 'Floral' },
-  { id: 'pastel', label: 'Pastel' },
-  { id: 'whimsical', label: 'Whimsical' },
-  { id: 'hand-drawn', label: 'Hand-drawn' },
-  { id: 'minimalist', label: 'Minimalist' },
-  { id: 'elegant', label: 'Elegant' },
+/** The three looks, matching Little Hello's own artwork collections. `example` is a bundled artwork shown on the choice. */
+export const aiLooks = [
+  { id: 'botanical', label: 'Botanical', example: 'botanical-pressed-bouquet.jpg' },
+  { id: 'celebration', label: 'Celebration', example: 'celebration-cake-ribbon.jpg' },
+  { id: 'painterly', label: 'Painterly', example: 'artistic-midnight-bouquet.jpg' },
 ] as const
 
 export type AiRecipient = (typeof aiRecipients)[number]['id']
-export type AiTone = (typeof aiTones)[number]['id']
-export type AiStyle = (typeof aiStyles)[number]['id']
+export type AiLook = (typeof aiLooks)[number]['id']
+export type AiTone = 'sweet' | 'funny' | 'heartfelt' | 'playful' | 'encouraging' | 'romantic' | 'formal'
+
+/** The tone is chosen for the person, so nobody has to think about it. */
+export function toneForRecipient(recipient: AiRecipient, occasion: Occasion): AiTone {
+  if (recipient === 'partner') return 'romantic'
+  if (recipient === 'colleague') return 'formal'
+  if (occasion === 'Congratulations') return 'encouraging'
+  return recipient === 'family' ? 'sweet' : 'heartfelt'
+}
 
 export type AiMessageRequest = {
   turnstileToken: string
   occasion: Occasion
   recipient: AiRecipient
   tone: AiTone
-  style: AiStyle
+  style: AiLook
   personalMessage: string
   extraInstructions: string
 }
@@ -142,7 +136,7 @@ export async function generateAiMessage(apiUrl: string, request: AiMessageReques
   }
 }
 
-export type AiIllustrationRequest = { turnstileToken: string; occasion: Occasion; style: AiStyle }
+export type AiIllustrationRequest = { turnstileToken: string; occasion: Occasion; style: AiLook }
 export type AiIllustration = { blob: Blob; width: number; height: number }
 
 const ILLUSTRATION_MAX_BYTES = 2 * 1024 * 1024

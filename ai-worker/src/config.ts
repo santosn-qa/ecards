@@ -67,7 +67,7 @@ export function parseConfig(env: RawConfigEnv): AppConfig {
       creativeNeuronCap: Math.floor(allowance * fraction * Math.min(number(env.CREATIVE_BUDGET_FRACTION, 0.5), 1)),
       signaturePerVisitorPerDay: Math.floor(number(env.SIGNATURE_PER_VISITOR_PER_DAY, 3)),
       creativePerVisitorPerDay: Math.floor(number(env.CREATIVE_PER_VISITOR_PER_DAY, 1)),
-      cooldownSeconds: number(env.VISITOR_COOLDOWN_SECONDS, 20),
+      cooldownSeconds: number(env.VISITOR_COOLDOWN_SECONDS, 8),
       textReserveNeurons: number(env.TEXT_RESERVE_NEURONS, 80),
       imageReserveNeurons: number(env.IMAGE_RESERVE_NEURONS, 180),
     },

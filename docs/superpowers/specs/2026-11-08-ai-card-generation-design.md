@@ -106,7 +106,7 @@ read-modify-write is safe.
 | `BUDGET_FRACTION` | 0.8 | stop at 8,000 Neurons |
 | `SIGNATURE_PER_VISITOR_PER_DAY` | 3 | |
 | `CREATIVE_PER_VISITOR_PER_DAY` | 1 | |
-| `VISITOR_COOLDOWN_SECONDS` | 20 | between any two generations |
+| `VISITOR_COOLDOWN_SECONDS` | 8 | between two messages, or between two pictures; tracked per mode so one "Make my card" click can do both |
 | `TEXT_RESERVE_NEURONS` | 80 | covers the worst case (~650 prompt + 250 output tokens ≈ 68) |
 | `IMAGE_RESERVE_NEURONS` | 180 | covers one 1024×1024 image (172.8) |
 | `CREATIVE_BUDGET_FRACTION` | 0.5 | images may use at most half the cap (4,000, about 23 images a day), so they can never starve text |
@@ -159,11 +159,16 @@ up front.
 
 - `occasion`: one of the 5 existing occasions.
 - `recipient`: one of `friend`, `family`, `partner`, `colleague`, `someone`.
+  The app offers the first four.
 - `tone`: one of `sweet`, `funny`, `heartfelt`, `playful`, `encouraging`,
-  `romantic`, `formal`.
-- `style`: one of `watercolor`, `minimalist`, `pastel`, `hand-drawn`, `floral`,
-  `whimsical`, `elegant`. In Signature mode this only guides which existing
-  template is chosen.
+  `romantic`, `formal`. The app picks it from the recipient and occasion
+  (`toneForRecipient`), so people never have to choose a tone.
+- `style` (the "look"): one of `botanical`, `celebration`, `painterly`. These
+  match the app's artwork collections and the three directions in
+  `docs/BIRTHDAY-GARDEN-ART-PROMPT.md`. Looks from earlier app versions
+  (`watercolor`, `floral`, `pastel`, `minimalist`, `whimsical`, `hand-drawn`,
+  `elegant`) are mapped to the nearest one, for browsers still running a
+  cached copy.
 - `personalMessage`: 0–500 characters, the app's existing limit.
 - `extraInstructions`: 0–200 characters.
 
@@ -276,32 +281,50 @@ already an object, and both are handled. Rules:
   `1x0000000000000000000000000000000AA` always passes, and
   `2x0000000000000000000000000000000AA` always fails.
 
-## Frontend (Milestone 4)
+## Frontend: "Make a card for me"
 
-- A "✦ Create with AI" button in the hero opens a panel above step 01. It has
-  selects for occasion, recipient, tone and look, an optional "Anything to
-  include?" field, an optional "Your own words" field (collapsed), the privacy
-  note, a Turnstile widget, and "Write my card". Files:
-  `src/components/AiCreatePanel.tsx`, `src/ai/aiClient.ts`,
-  `src/ai/turnstile.ts`, `src/config/ai.ts`.
-- Opening the panel makes one `GET /v1/status` request and loads the Turnstile
-  script (`appearance: interaction-only`). Closing it removes the widget.
-  Nothing loads on page load.
-- Generate shows a busy state with Cancel (an `AbortController`). Every
-  Turnstile token is used once, and the widget is reset after each request.
-  The browser never retries automatically.
-- On success, the panel fills the **existing** editor: occasion, template,
-  message and font. A "✦ Written with AI help" note appears above the message,
-  and the message is protected from accidental replacement by sample chips. The
-  editor scrolls into view. "Regenerate message" replaces only the message
-  and keeps whatever design and font the user has picked since.
-- Every response is re-checked in the browser (`parseSuggestion`): the
-  template must belong to the requested occasion, the font must be known, and
-  the message 1–500 characters. React renders it as text, never HTML.
+Little Hello's audience is mostly older people, so the AI feature is one
+simple step (revised 2026-11-08 after the first live trial):
+
+- A large "✦ Make a card for me" button in the hero opens the panel. It
+  offers:
+  - "A {occasion} card for…", with four large buttons: A friend, Family, My
+    partner, A colleague. The occasion comes from step 01 on the main page.
+  - "Choose a look": three picture tiles (Botanical, Celebration, Painterly),
+    each showing one of the app's own artworks. On narrow screens they're
+    full-width rows.
+  - An optional "Anything to mention?" field.
+  - One "Make my card" button.
+- There's no tone choice, no style list and no separate picture section.
+- One click writes the message, applies it to the normal editor (occasion,
+  design, message, font), then paints a matching picture if the visitor has
+  one left today. It uses two single-use Turnstile tokens: the second is
+  requested as soon as the first is taken.
+- If no picture is available, or painting fails, the card keeps its Little
+  Hello design and the status says so gently. It's never shown as an error.
+- Afterwards: "Try another message" (keeps the picture and design) and "Make a
+  new card". A Stop button works while writing or painting. If the message is
+  already in, Stop keeps it. Stop uses its own React `key`: without one, the
+  same click turned it back into the submit button and started a new card
+  (caught by a test).
+- The text is at least 15px and the buttons at least 48px tall (most are
+  56–58px). Hover only hints, and only with a mouse, so a tapped choice never
+  looks selected by mistake.
+- Opening the panel makes one `GET /v1/status` request and loads the
+  Turnstile script (`appearance: interaction-only`). The button stays enabled,
+  and a click waits up to 15 s for the human check. Closing the panel removes
+  the widget. Nothing loads on page load.
+- Every response is re-checked in the browser (`parseSuggestion`,
+  `illustrationBytes` and `createImageBitmap`). React renders the message as
+  text, never as HTML.
 - Hidden entirely unless both `VITE_AI_API_URL` and `VITE_TURNSTILE_SITE_KEY`
-  are set. Disabled with an explanation when offline, `enabled: false`, or the
-  visitor's quota is used up. "Your own words" still works then, since it costs
-  no AI.
+  are set. Offline, or when AI is off or used up for today, the panel says so
+  in plain words and the normal editor carries on as usual.
+- AI pictures use the "illustration above text" layout. The picture is drawn
+  at 1.25× the band height, so the whole subject shows and only empty paper at
+  the top and bottom is trimmed. It's multiplied over the card's paper colour
+  (CSS `mix-blend-mode`, and canvas `multiply` in the PNG), so white or cream
+  backgrounds become the card's own paper.
 - **Service worker (verified):** the generated `sw.js` registers only the
   app-shell navigation route, and its precache list holds only local assets,
   so `/v1/*` responses and the Turnstile script are never cached.

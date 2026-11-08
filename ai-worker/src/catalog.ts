@@ -13,8 +13,27 @@ export type Recipient = (typeof recipients)[number]
 export const tones = ['sweet', 'funny', 'heartfelt', 'playful', 'encouraging', 'romantic', 'formal'] as const
 export type Tone = (typeof tones)[number]
 
-export const styles = ['watercolor', 'minimalist', 'pastel', 'hand-drawn', 'floral', 'whimsical', 'elegant'] as const
+/** The three looks, matching Little Hello's own artwork collections. */
+export const styles = ['botanical', 'celebration', 'painterly'] as const
 export type Style = (typeof styles)[number]
+
+// Looks offered by earlier versions of the app, which a browser may still have
+// cached for a while. They map to the nearest current look instead of failing.
+const legacyStyles: Record<string, Style> = {
+  watercolor: 'botanical',
+  floral: 'botanical',
+  pastel: 'botanical',
+  minimalist: 'botanical',
+  whimsical: 'celebration',
+  'hand-drawn': 'celebration',
+  elegant: 'painterly',
+}
+
+export function normalizeStyle(value: unknown): Style | undefined {
+  if (typeof value !== 'string') return undefined
+  if ((styles as readonly string[]).includes(value)) return value as Style
+  return legacyStyles[value]
+}
 
 export function templatesForOccasion(occasion: Occasion): CardTemplate[] {
   return cardTemplates.filter((template) => template.occasion === occasion)

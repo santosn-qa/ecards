@@ -46,7 +46,7 @@ const validBody = {
   occasion: 'Birthday',
   recipient: 'friend',
   tone: 'playful',
-  style: 'whimsical',
+  style: 'celebration',
 }
 
 function scriptedProvider(outputs: Array<TextGeneration | Error | 'hang'>) {
@@ -153,6 +153,7 @@ test.describe('request validation', () => {
     ['recipient', 'boss'],
     ['tone', 'sarcastic'],
     ['style', 'photorealistic'],
+    ['style', 42],
     ['turnstileToken', ''],
     ['turnstileToken', 'x'.repeat(2049)],
   ] as const) {
@@ -235,7 +236,7 @@ test.describe('AI output validation', () => {
 test.describe('design picker and prompt', () => {
   test('always returns a template for the requested occasion', () => {
     for (const template of cardTemplates) {
-      for (const style of ['watercolor', 'minimalist', 'pastel', 'hand-drawn', 'floral', 'whimsical', 'elegant'] as const) {
+      for (const style of ['botanical', 'celebration', 'painterly'] as const) {
         const picked = cardTemplates.find(({ id }) => id === pickTemplateId(template.occasion, style))
         expect(picked?.occasion).toBe(template.occasion)
       }
@@ -244,7 +245,7 @@ test.describe('design picker and prompt', () => {
   })
 
   test('never includes To/From names and fences user preferences', () => {
-    const messages = buildCardTextPrompt({ ...validBody, occasion: 'Birthday', recipient: 'friend', tone: 'playful', style: 'whimsical', personalMessage: '', extraInstructions: 'mention <b>pizza</b>' })
+    const messages = buildCardTextPrompt({ ...validBody, occasion: 'Birthday', recipient: 'friend', tone: 'playful', style: 'celebration', personalMessage: '', extraInstructions: 'mention <b>pizza</b>' })
     const text = messages.map(({ content }) => content).join('\n')
     expect(text).toContain('<preferences>mention bpizza/b</preferences>')
     expect(text).not.toMatch(/\bTo:|\bFrom:/)
@@ -271,8 +272,23 @@ test.describe('quota rules', () => {
   test('enforces the cooldown between generations', async () => {
     const rules = new QuotaRules(memoryStorage(), testConfig().quota)
     expect((await rules.reserve('v1', 'signature', NOON)).ok).toBe(true)
-    expect(await rules.reserve('v1', 'signature', NOON + 5000)).toEqual({ ok: false, error: 'rate_limited', retryAfterSeconds: 15 })
-    expect((await rules.reserve('v1', 'signature', NOON + 20_000)).ok).toBe(true)
+    expect(await rules.reserve('v1', 'signature', NOON + 3000)).toEqual({ ok: false, error: 'rate_limited', retryAfterSeconds: 5 })
+    expect((await rules.reserve('v1', 'signature', NOON + 8000)).ok).toBe(true)
+  })
+
+  test('keeps separate cooldowns for messages and pictures, so one click can make both', async () => {
+    const rules = new QuotaRules(memoryStorage(), testConfig().quota)
+    expect((await rules.reserve('v1', 'signature', NOON)).ok).toBe(true)
+    expect((await rules.reserve('v1', 'creative', NOON + 100)).ok).toBe(true)
+    expect(await rules.reserve('v1', 'creative', NOON + 200)).toMatchObject({ ok: false })
+  })
+
+  test('reads visitor records saved before cooldowns were per mode', async () => {
+    const storage = memoryStorage()
+    storage.data.set(`visitor:${utcDay(NOON)}:v1`, { signature: 1, creative: 0, lastAt: NOON - 60_000 })
+    const rules = new QuotaRules(storage, testConfig().quota)
+    expect((await rules.reserve('v1', 'signature', NOON)).ok).toBe(true)
+    expect((await rules.status('v1', NOON)).signatureRemaining).toBe(1)
   })
 
   test('refuses everyone once the global budget is spent, before any AI call', async () => {
@@ -359,7 +375,7 @@ test.describe('generate/message handler', () => {
   test('substitutes the deterministic design when the model suggests an invalid one', async () => {
     const { provider } = scriptedProvider([aiOutput({ message: GOOD_MESSAGE, templateId: '../../etc', messageFont: 'wingdings' })])
     const body = await (await handleRequest(post(validBody), makeDeps({ provider }).deps)).json()
-    expect(body.templateId).toBe(pickTemplateId('Birthday', 'whimsical'))
+    expect(body.templateId).toBe(pickTemplateId('Birthday', 'celebration'))
     expect(body.messageFont).toBe(pickMessageFont('playful'))
   })
 
@@ -410,7 +426,7 @@ test.describe('generate/message handler', () => {
     const limited = scriptedProvider([aiOutput({ message: GOOD_MESSAGE })])
     let clock = NOON
     const { deps } = makeDeps({ provider: limited.provider, now: () => clock })
-    for (let i = 0; i < 3; i++) { await handleRequest(post(validBody), deps); clock += 21_000 }
+    for (let i = 0; i < 3; i++) { await handleRequest(post(validBody), deps); clock += 9_000 }
     const fourth = await handleRequest(post(validBody), deps)
     expect(fourth.status).toBe(429)
     expect(await fourth.json()).toEqual({ error: 'daily_limit_reached' })
@@ -422,7 +438,7 @@ test.describe('generate/message handler', () => {
       return handleRequest(post(validBody), shared.deps)
     })
     expect(cooldown.status).toBe(429)
-    expect(await cooldown.json()).toEqual({ error: 'rate_limited', retryAfterSeconds: 20 })
+    expect(await cooldown.json()).toEqual({ error: 'rate_limited', retryAfterSeconds: 8 })
 
     const unverified = scriptedProvider([aiOutput({ message: GOOD_MESSAGE })])
     const rejected = await handleRequest(post(validBody), makeDeps({ provider: unverified.provider, turnstile: async () => ({ ok: false, reason: 'rejected' }) }).deps)
@@ -487,7 +503,7 @@ test.describe('generate/message handler', () => {
   })
 })
 
-const illustrationBody = { turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX', occasion: 'Birthday', style: 'watercolor' }
+const illustrationBody = { turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX', occasion: 'Birthday', style: 'botanical' }
 const postIllustration = (body: unknown = illustrationBody, init: Parameters<typeof post>[1] = {}) =>
   post(body, { ...init, path: '/v1/generate/illustration' })
 
@@ -515,11 +531,23 @@ test.describe('illustration request and output validation', () => {
   })
 
   test('builds a fixed prompt that never asks for text in the image', () => {
-    const prompt = buildIllustrationPrompt({ occasion: 'Love', style: 'whimsical' })
-    expect(prompt).toContain('whimsical storybook illustration')
-    expect(prompt).toContain('two coffee cups')
+    const prompt = buildIllustrationPrompt({ occasion: 'Love', style: 'painterly' })
+    expect(prompt).toContain('Painterly and editorial')
+    expect(prompt).toContain('two ceramic mugs')
+    expect(prompt).toContain('warm cream textured paper')
     expect(prompt).toMatch(/No text, no letters, no words/)
-    expect(prompt).toContain('The left two thirds must be calm, plain, light background')
+    // Workers AI caps flux-1-schnell prompts at 2048 characters.
+    for (const occasion of ['Birthday', 'Thank you', 'Congratulations', 'Love', 'Just because'] as const) {
+      for (const style of ['botanical', 'celebration', 'painterly'] as const) {
+        expect(buildIllustrationPrompt({ occasion, style }).length).toBeLessThanOrEqual(2048)
+      }
+    }
+  })
+
+  test('maps looks from earlier app versions to the nearest current look', () => {
+    expect(validateIllustrationRequest({ ...illustrationBody, style: 'watercolor' })).toMatchObject({ ok: true, value: { style: 'botanical' } })
+    expect(validateIllustrationRequest({ ...illustrationBody, style: 'whimsical' })).toMatchObject({ ok: true, value: { style: 'celebration' } })
+    expect(validateMessageRequest({ ...validBody, style: 'elegant' })).toMatchObject({ ok: true, value: { style: 'painterly' } })
   })
 
   test('accepts a complete JPEG of a supported size and reads its dimensions', () => {
@@ -583,7 +611,7 @@ test.describe('generate/illustration handler', () => {
     const body = await response.json()
     expect(body).toMatchObject({ mimeType: 'image/jpeg', width: 1024, height: 1024 })
     expect(body.image).toBe(fakeJpeg())
-    expect(prompts).toEqual([buildIllustrationPrompt({ occasion: 'Birthday', style: 'watercolor' })])
+    expect(prompts).toEqual([buildIllustrationPrompt({ occasion: 'Birthday', style: 'botanical' })])
     expect(storage.data.get(`spent:${utcDay(NOON)}`)).toBe(173)
   })
 

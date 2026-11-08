@@ -76,7 +76,7 @@ export function buildCardTextPrompt(request: MessageRequest): ChatMessage[] {
     `Occasion: ${request.occasion}`,
     `Recipient: ${recipientPhrase[request.recipient]}`,
     `Tone: ${request.tone}`,
-    `Visual style preference: ${request.style}`,
+    `Card look: ${request.style}`,
     request.extraInstructions ? `<preferences>${request.extraInstructions.replaceAll('<', '').replaceAll('>', '')}</preferences>` : '',
   ].filter(Boolean).join('\n')
 

@@ -48,15 +48,20 @@ export function CardArtwork({ template }: CardArtworkProps) {
   return <ArtisticArtwork template={template} />
 }
 
+/** The square AI picture is drawn at this multiple of the band's height: the whole middle shows, and only empty paper at the top and bottom is trimmed. */
+export const AI_ART_SCALE = 1.25
+
 /**
  * An AI-generated illustration for the "illustration above text" layout. It is
- * always a local blob: URL created from a validated JPEG, centre-cropped to fill
- * the top of the card, and never has words drawn into it.
+ * always a local blob: URL created from a validated JPEG, and never has words
+ * drawn into it. It's multiplied over the card's paper colour (see App.css), so
+ * the picture's own background melts into the card.
  */
 export function AiArtwork({ url }: { url: string }) {
+  const size = 338 * AI_ART_SCALE
   return (
     <svg className="card-artwork artwork-ai" viewBox="0 0 600 338" preserveAspectRatio="xMidYMid slice">
-      <image className="source-art source-ai" href={url} x="0" y="0" width="600" height="338" preserveAspectRatio="xMidYMid slice" />
+      <image className="source-art source-ai" href={url} x={(600 - size) / 2} y={(338 - size) / 2} width={size} height={size} preserveAspectRatio="xMidYMid meet" />
     </svg>
   )
 }

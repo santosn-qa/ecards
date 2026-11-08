@@ -19,9 +19,13 @@ export type ReserveResult =
 
 export type QuotaStatus = { signatureRemaining: number; creativeRemaining: number; budgetRemaining: number }
 
-type VisitorRecord = { signature: number; creative: number; lastAt: number }
+// The cooldown is tracked per mode, so one "Make my card" click can write a
+// message and then paint a picture straight away.
+type VisitorRecord = { signature: number; creative: number; signatureAt: number; creativeAt: number }
 
-const emptyVisitor: VisitorRecord = { signature: 0, creative: 0, lastAt: 0 }
+const emptyVisitor: VisitorRecord = { signature: 0, creative: 0, signatureAt: 0, creativeAt: 0 }
+
+const lastAtField = (mode: Mode): 'signatureAt' | 'creativeAt' => (mode === 'signature' ? 'signatureAt' : 'creativeAt')
 
 /** The UTC calendar day, matching Cloudflare's 00:00 UTC reset of the free allocation. */
 export function utcDay(now: number): string {
@@ -65,12 +69,13 @@ export class QuotaRules {
     const neurons = this.reserveFor(mode)
     const spent = (await this.storage.get<number>(spentKey(day))) ?? 0
     const creativeSpent = mode === 'creative' ? ((await this.storage.get<number>(creativeSpentKey(day))) ?? 0) : 0
-    const record = (await this.storage.get<VisitorRecord>(visitorKey(day, visitor))) ?? emptyVisitor
+    const record = { ...emptyVisitor, ...((await this.storage.get<VisitorRecord>(visitorKey(day, visitor))) ?? {}) }
 
     if (countsAsUse) {
-      const sinceLast = now - record.lastAt
+      const lastAt = record[lastAtField(mode)]
+      const sinceLast = now - lastAt
       const cooldownMs = this.config.cooldownSeconds * 1000
-      if (record.lastAt > 0 && sinceLast < cooldownMs) {
+      if (lastAt > 0 && sinceLast < cooldownMs) {
         return { ok: false, error: 'rate_limited', retryAfterSeconds: Math.ceil((cooldownMs - sinceLast) / 1000) }
       }
       if (record[mode] >= this.perVisitorLimit(mode)) return { ok: false, error: 'daily_limit_reached' }
@@ -83,7 +88,7 @@ export class QuotaRules {
     await this.storage.put(spentKey(day), spent + neurons)
     if (mode === 'creative') await this.storage.put(creativeSpentKey(day), creativeSpent + neurons)
     if (countsAsUse) {
-      await this.storage.put(visitorKey(day, visitor), { ...record, [mode]: record[mode] + 1, lastAt: now })
+      await this.storage.put(visitorKey(day, visitor), { ...record, [mode]: record[mode] + 1, [lastAtField(mode)]: now })
     }
     return { ok: true, reservation: { day, neurons, mode } }
   }
@@ -106,7 +111,7 @@ export class QuotaRules {
   async status(visitor: string, now: number): Promise<QuotaStatus> {
     const day = utcDay(now)
     const spent = (await this.storage.get<number>(spentKey(day))) ?? 0
-    const record = (await this.storage.get<VisitorRecord>(visitorKey(day, visitor))) ?? emptyVisitor
+    const record = { ...emptyVisitor, ...((await this.storage.get<VisitorRecord>(visitorKey(day, visitor))) ?? {}) }
     const creativeSpent = (await this.storage.get<number>(creativeSpentKey(day))) ?? 0
     const budgetRemaining = Math.max(0, this.config.dailyNeuronCap - spent)
     const creativeBudgetRemaining = Math.min(budgetRemaining, Math.max(0, this.config.creativeNeuronCap - creativeSpent))

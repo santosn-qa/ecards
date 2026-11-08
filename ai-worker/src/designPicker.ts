@@ -1,16 +1,11 @@
 import { templatesForOccasion, type MessageFontId, type Occasion, type Style, type Tone } from './catalog'
 
-// Rough mapping from the visual styles offered in the AI panel to the existing
-// templates' `style` values, best match first. With 1–3 templates per occasion
-// this is a preference, not a promise: richer matching needs more artwork.
-const templateStylePreference: Record<Style, string[]> = {
-  watercolor: ['botanical', 'romantic', 'sunny'],
-  minimalist: ['editorial', 'sunny'],
-  pastel: ['sunny', 'romantic', 'playful'],
-  'hand-drawn': ['doodle', 'handmade', 'playful'],
-  floral: ['botanical', 'playful', 'romantic'],
-  whimsical: ['doodle', 'celebration', 'playful'],
-  elegant: ['editorial', 'romantic', 'celebration'],
+// Each look matches one of the existing artwork collections, best match first.
+// With 1–3 templates per occasion this is a preference, not a promise.
+const collectionPreference: Record<Style, string[]> = {
+  botanical: ['botanical', 'artistic', 'celebration'],
+  celebration: ['celebration', 'botanical', 'artistic'],
+  painterly: ['artistic', 'botanical', 'celebration'],
 }
 
 const fontForTone: Record<Tone, MessageFontId> = {
@@ -26,8 +21,8 @@ const fontForTone: Record<Tone, MessageFontId> = {
 /** Picks the occasion's template that best matches the style; always returns one of the occasion's templates. */
 export function pickTemplateId(occasion: Occasion, style: Style): string {
   const candidates = templatesForOccasion(occasion)
-  for (const preferred of templateStylePreference[style]) {
-    const match = candidates.find((template) => template.style === preferred)
+  for (const preferred of collectionPreference[style]) {
+    const match = candidates.find((template) => template.collection === preferred)
     if (match) return match.id
   }
   return candidates[0].id
