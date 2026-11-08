@@ -18,6 +18,10 @@ playwright-report
 worker/.dev.vars
 worker/.wrangler
 
+# Cloudflare Worker (ai-worker/)
+ai-worker/.dev.vars
+ai-worker/.wrangler
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -30,3 +34,5 @@ worker/.wrangler
 *.sln
 *.sw?
 .playwright-mcp/
+
+*.env

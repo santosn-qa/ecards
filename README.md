@@ -24,6 +24,17 @@ All card content is created and rendered locally in the browser.
   Leaving `VITE_COUNTER_API_URL` unset (the default for local dev and forks)
   fully disables the feature: no requests, no UI. Worker setup:
   `worker/README.md`.
+- **Create with AI (a second, opt-in exception):** an optional panel suggests
+  a message, design and font. Only when someone presses its button are the
+  occasion, recipient type, tone, look and any extra details or own words sent
+  to a separate Cloudflare Worker, which uses Workers AI. To/From names are
+  never sent, and nothing is stored. The result fills the normal editor, so the
+  card is still rendered, shared and downloaded entirely in the browser. A
+  server-side daily budget keeps it within Cloudflare's free allowance. The
+  feature is on only when both `VITE_AI_API_URL` and `VITE_TURNSTILE_SITE_KEY`
+  are set at build time. Design and privacy boundary:
+  `docs/superpowers/specs/2026-11-08-ai-card-generation-design.md`. Worker
+  setup: `ai-worker/README.md`.
 - **Templates:** artwork stays in local application assets and is separate from
   card content. New artwork must receive a new permanent template ID.
 - **Offline:** `vite-plugin-pwa` and Workbox precache the application shell and
@@ -81,7 +92,23 @@ npm run typecheck
 npm run build
 ```
 
-## GitHub Pages deployment
+## Deployment
+
+The app is deployed to two places from `main`:
+
+- **Production:** <https://little-hello.ns-apps.workers.dev/> is the Cloudflare
+  Worker `little-hello`. **Cloudflare Workers Builds** builds and deploys it
+  (a Git integration set up in the Cloudflare dashboard, not in this repo), and
+  it appears as the "Workers Builds: little-hello" check on each commit. It
+  builds with the default base path `/`. Build-time `VITE_*` variables for
+  production (for example `VITE_COUNTER_API_URL`) must be set in the dashboard,
+  under the Workers Builds settings for `little-hello`, not as GitHub variables.
+  This repo has no root wrangler config, so adding one could change how
+  Workers Builds deploys the site.
+- **GitHub Pages:** <https://santosn-qa.github.io/ecards/>, deployed by the
+  workflow below.
+
+### GitHub Pages
 
 The workflow in `.github/workflows/deploy.yml` runs checks, builds `dist/` with
 `VITE_BASE_PATH=/<repository-name>/`, and deploys through the official Pages

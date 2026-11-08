@@ -1,22 +1,27 @@
 import type { CSSProperties } from 'react'
 import type { CardDraft, CardTemplate } from '../data/templates'
 import { getMessageFont } from '../data/typography'
-import { CardArtwork } from './CardArtwork'
+import { AiArtwork, CardArtwork } from './CardArtwork'
 
 type CardRendererProps = {
   card: CardDraft
   template: CardTemplate
   className?: string
+  /** A local blob: URL for an AI illustration. When set, the card uses the "illustration above text" layout. */
+  artworkUrl?: string
 }
 
-export function CardRenderer({ card, template, className = '' }: CardRendererProps) {
+export function CardRenderer({ card, template, className = '', artworkUrl }: CardRendererProps) {
   const messageFont = getMessageFont(card.messageFont || template.typography.defaultMessageFont)
   const messageLength = (card.message || '').length
   const lengthClass = messageLength > 200 ? 'message-length-xlong' : messageLength > 120 ? 'message-length-long' : ''
   return (
-    <article className={`card-preview ${template.previewClass} card-style-${template.style} card-collection-${template.collection} ${className}`}>
+    <article
+      className={`card-preview ${template.previewClass} card-style-${template.style} card-collection-${template.collection} ${artworkUrl ? 'card-layout-ai-top' : ''} ${className}`}
+      style={artworkUrl ? ({ '--panel-color': template.artwork.backgroundColor } as CSSProperties) : undefined}
+    >
       <div className="preview-art" aria-hidden="true">
-        <CardArtwork template={template} />
+        {artworkUrl ? <AiArtwork url={artworkUrl} /> : <CardArtwork template={template} />}
       </div>
       <div
         className="preview-content"

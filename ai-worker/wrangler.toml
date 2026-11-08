@@ -1,0 +1,42 @@
+name = "little-hello-ai"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Workers AI. On the Workers Free plan, usage past the daily free allocation
+# fails with an error rather than billing. QuotaGuard also stops well before it.
+[ai]
+binding = "AI"
+
+# One SQLite-backed Durable Object (the only kind available on Workers Free)
+# holds the global daily Neuron budget and per-visitor quotas.
+[[durable_objects.bindings]]
+name = "QUOTA_GUARD"
+class_name = "QuotaGuard"
+
+[exports.QuotaGuard]
+type = "durable-object"
+storage = "sqlite"
+
+[vars]
+# Comma-separated list of browser origins allowed to call this Worker.
+ALLOWED_ORIGINS = "https://little-hello.ns-apps.workers.dev,https://santosn-qa.github.io"
+# Optional comma-separated hostnames that Turnstile tokens must have been issued
+# for. Leave empty to skip the check.
+TURNSTILE_EXPECTED_HOSTNAMES = "little-hello.ns-apps.workers.dev,santosn-qa.github.io"
+# Server-side kill switch: "false" refuses every generation request.
+AI_ENABLED = "true"
+DAILY_NEURON_ALLOWANCE = "10000"
+BUDGET_FRACTION = "0.8"
+SIGNATURE_PER_VISITOR_PER_DAY = "3"
+CREATIVE_PER_VISITOR_PER_DAY = "1"
+VISITOR_COOLDOWN_SECONDS = "20"
+TEXT_RESERVE_NEURONS = "80"
+# A 1024x1024 flux-1-schnell image at 4 steps costs 172.8 Neurons.
+IMAGE_RESERVE_NEURONS = "180"
+# Share of the daily cap images may use (0.5 of 8,000 is about 23 images a day),
+# so illustrations can never use up the budget for text messages.
+CREATIVE_BUDGET_FRACTION = "0.5"
+
+# Secrets (set with `npx wrangler secret put <NAME>`, never committed):
+#   IP_HASH_SECRET        - HMAC key used to hash visitor IPs
+#   TURNSTILE_SECRET_KEY  - Turnstile widget secret

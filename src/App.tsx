@@ -12,6 +12,8 @@ import { SupportPanel } from './components/SupportPanel'
 import { SupportFooterLink } from './components/SupportFooterLink'
 import { useSentCounter } from './counter/useSentCounter'
 import { SentCounter } from './components/SentCounter'
+import { AI_CONFIG } from './config/ai'
+import { AiCreatePanel, type AiApplied, type AiIllustrationApplied } from './components/AiCreatePanel'
 import './App.css'
 
 const emptyDraft: CardDraft = { to: '', message: '', from: '' }
@@ -139,6 +141,17 @@ function App() {
   const [shareUrl, setShareUrl] = useState('')
   const shareUrlGenerationRef = useRef(0)
   const fontOptionsRef = useRef<HTMLDivElement>(null)
+  const editorPanelRef = useRef<HTMLDivElement>(null)
+  const [showAiPanel, setShowAiPanel] = useState(false)
+  const [aiAssisted, setAiAssisted] = useState(false)
+  // An AI illustration lives only in this tab, as a local blob: URL. It is never
+  // uploaded or put in share links, which keep using the chosen template.
+  const [aiArt, setAiArt] = useState<{ url: string; occasion: Occasion } | null>(null)
+  const [useAiArt, setUseAiArt] = useState(false)
+  const aiArtUrlRef = useRef<string | null>(null)
+  useEffect(() => () => {
+    if (aiArtUrlRef.current) URL.revokeObjectURL(aiArtUrlRef.current)
+  }, [])
 
   function scrollFontOptions(direction: -1 | 1) {
     fontOptionsRef.current?.scrollBy({ left: direction * 160, behavior: 'smooth' })
@@ -149,6 +162,7 @@ function App() {
   )
   const selectedTemplate =
     cardTemplates.find((template) => template.id === selectedTemplateId) ?? visibleTemplates[0]
+  const showingAiArt = useAiArt && aiArt !== null
 
   function applySharedHash(hash: string) {
     // Bump the generation on every hash transition, regardless of route kind, so
@@ -231,6 +245,32 @@ function App() {
     if (!nextTemplate) return
     setSelectedTemplateId(templateId)
     setDraft((current) => ({ ...current, messageFont: nextTemplate.typography.defaultMessageFont }))
+    // Picking a design means the user wants that design's artwork.
+    setUseAiArt(false)
+  }
+
+  function clearAiArt() {
+    if (aiArtUrlRef.current) URL.revokeObjectURL(aiArtUrlRef.current)
+    aiArtUrlRef.current = null
+    setAiArt(null)
+    setUseAiArt(false)
+  }
+
+  function applyAiIllustration(result: AiIllustrationApplied) {
+    if (aiArtUrlRef.current) URL.revokeObjectURL(aiArtUrlRef.current)
+    const url = URL.createObjectURL(result.blob)
+    aiArtUrlRef.current = url
+    setAiArt({ url, occasion: result.occasion })
+    setUseAiArt(true)
+    if (result.occasion !== occasion) {
+      // Keep the user's words, but show designs for the illustration's occasion.
+      setOccasion(result.occasion)
+      const firstTemplate = cardTemplates.find((template) => template.occasion === result.occasion)
+      if (firstTemplate) {
+        setSelectedTemplateId(firstTemplate.id)
+        setDraft((current) => ({ ...current, messageFont: current.messageFont ?? firstTemplate.typography.defaultMessageFont }))
+      }
+    }
   }
 
   if (sharedResult && !sharedResult.ok) {
@@ -257,7 +297,32 @@ function App() {
       setNotice('')
       setMessageIsTyped(false)
       setConfirmingSampleOverwrite(false)
+      setAiAssisted(false)
+      clearAiArt()
     }
+  }
+
+  // An AI suggestion lands in the normal editor, exactly as if the user had
+  // picked the occasion, design, font and words themselves, so everything
+  // stays editable and shares/downloads through the existing renderer.
+  function applyAiCard(result: AiApplied) {
+    if (aiArt && aiArt.occasion !== result.occasion) clearAiArt()
+    setOccasion(result.occasion)
+    setSelectedTemplateId(result.templateId)
+    setDraft((current) => ({ ...current, message: result.message, messageFont: result.messageFont }))
+    // Protect the suggestion from being silently replaced by a sample chip.
+    setMessageIsTyped(true)
+    setConfirmingSampleOverwrite(false)
+    setNotice('')
+    setAiAssisted(result.source === 'ai')
+    editorPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function applyAiMessage(message: string) {
+    updateDraft('message', message)
+    setMessageIsTyped(true)
+    setConfirmingSampleOverwrite(false)
+    setAiAssisted(true)
   }
 
   function updateDraft(field: keyof CardDraft, value: string) {
@@ -275,6 +340,7 @@ function App() {
     updateDraft('message', '')
     setMessageIsTyped(false)
     setConfirmingSampleOverwrite(false)
+    setAiAssisted(false)
   }
 
   function confirmOrWarnEmptyMessage(actionLabel: string) {
@@ -292,6 +358,7 @@ function App() {
     updateDraft('message', text)
     setMessageIsTyped(false)
     setConfirmingSampleOverwrite(false)
+    setAiAssisted(false)
   }
 
   function maybeShowSupportPanel() {
@@ -312,7 +379,7 @@ function App() {
     try {
       if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
       await navigator.clipboard.writeText(url)
-      setNotice('Link copied!')
+      setNotice(showingAiArt ? 'Link copied! It shows the Little Hello design. Download the card to keep the AI illustration.' : 'Link copied!')
       maybeShowSupportPanel()
       bumpSentCounter()
     } catch {
@@ -326,7 +393,7 @@ function App() {
     if ('share' in navigator) {
       try {
         await navigator.share({ title: 'A Little Hello card', text: 'Someone made a card for you.', url })
-        setNotice('Ready to share!')
+        setNotice(showingAiArt ? 'Ready to share! The link shows the Little Hello design.' : 'Ready to share!')
         maybeShowSupportPanel()
         bumpSentCounter()
       } catch {
@@ -341,7 +408,7 @@ function App() {
     if (!confirmOrWarnEmptyMessage('Download Card')) return
     setIsExporting(true)
     try {
-      await downloadCardPng(draft, selectedTemplate)
+      await downloadCardPng(draft, selectedTemplate, { artworkUrl: showingAiArt ? aiArt?.url : undefined })
       setNotice('Card downloaded!')
       maybeShowSupportPanel()
       bumpSentCounter()
@@ -362,9 +429,27 @@ function App() {
             <h1 id="welcome-title">Make someone’s day.</h1>
             <p className="hero-text">Choose a beautiful design, add your words, and share a little hello. No account needed.</p>
             <SentCounter count={sentCount} />
+            {AI_CONFIG.enabled && !showAiPanel && (
+              <button className="secondary-action ai-entry" type="button" onClick={() => setShowAiPanel(true)}>
+                <span aria-hidden="true">✦</span> Create with AI
+              </button>
+            )}
           </div>
           <div className="hero-sparkles" aria-hidden="true"><span>✦</span><span>✧</span><span>·</span></div>
         </section>
+        {AI_CONFIG.enabled && showAiPanel && AI_CONFIG.apiUrl && AI_CONFIG.turnstileSiteKey && (
+          <AiCreatePanel
+            apiUrl={AI_CONFIG.apiUrl}
+            turnstileSiteKey={AI_CONFIG.turnstileSiteKey}
+            initialOccasion={occasion}
+            hasTypedMessage={draft.message.trim().length > 0}
+            onApply={applyAiCard}
+            onApplyMessage={applyAiMessage}
+            onApplyIllustration={applyAiIllustration}
+            hasIllustration={aiArt !== null}
+            onClose={() => setShowAiPanel(false)}
+          />
+        )}
         <section className="step-section" aria-labelledby="occasion-title">
           <div className="section-heading">
             <div><p className="step-label">01 <span>of 03</span></p><h2 id="occasion-title">What’s the occasion?</h2></div>
@@ -392,7 +477,7 @@ function App() {
                 </button>
               ))}
             </div>
-            <div className="editor-panel">
+            <div className="editor-panel" ref={editorPanelRef}>
               <div className="section-heading compact"><div><p className="step-label">03 <span>of 03</span></p><h2>Write your message</h2></div></div>
               <div className="form-fields">
                 <label>
@@ -422,6 +507,7 @@ function App() {
                       </button>
                     ))}
                   </div>
+                  {aiAssisted && <p className="ai-assisted-note"><span aria-hidden="true">✦</span> Written with AI help. Edit anything you like.</p>}
                   <textarea id="card-message" aria-label={`Your message ${draft.message.length}/500`} value={draft.message} maxLength={500} onChange={(event) => handleMessageChange(event.target.value)} placeholder="Write something from the heart..." rows={5} />
                 </div>
                 <label>
@@ -472,7 +558,19 @@ function App() {
           </div>
           <aside className="preview-column" aria-label="Live card preview">
             <div className="preview-label"><span className="live-dot" /> Live preview</div>
-            <CardRenderer card={draft} template={selectedTemplate} />
+            <CardRenderer card={draft} template={selectedTemplate} artworkUrl={showingAiArt ? aiArt?.url : undefined} />
+            {aiArt && (
+              <p className="ai-art-note">
+                {showingAiArt ? (
+                  <>
+                    <span><span aria-hidden="true">✦</span> AI-generated illustration. Share links show the Little Hello design.</span>
+                    <button className="ai-art-toggle" type="button" onClick={() => setUseAiArt(false)}>Use the Little Hello design</button>
+                  </>
+                ) : (
+                  <button className="ai-art-toggle" type="button" onClick={() => setUseAiArt(true)}>Use my AI illustration</button>
+                )}
+              </p>
+            )}
             <p className="preview-footnote">Your card is created on your device.<br />We don’t need to store it.</p>
           </aside>
         </section>

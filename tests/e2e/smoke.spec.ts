@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { decodeCardHash } from '../../src/card/codec'
 
 async function samplePngPixel(page: import('@playwright/test').Page, pngPath: string, x: number, y: number) {
   const base64 = readFileSync(pngPath).toString('base64')
@@ -575,7 +576,12 @@ test('applies an expressive message font and preserves it in shared cards', asyn
   expect(await toFrom.last().evaluate((element) => getComputedStyle(element).fontFamily)).toBe(supportingFont)
 
   const shareLink = page.getByRole('textbox', { name: 'Share link' })
-  await expect(shareLink).toHaveValue(/#\/card\/v2\//)
+  // The share-link field is regenerated asynchronously after every draft change, so wait until it
+  // reflects the font change itself — a merely-present v2 link may still be the pre-click one.
+  await expect.poll(async () => {
+    const result = await decodeCardHash(new URL(await shareLink.inputValue()).hash)
+    return result?.ok ? result.card.messageFont : undefined
+  }).toBe('dancing-script')
   const url = await shareLink.inputValue()
   await page.goto(url)
   await expect(page.locator('.preview-message')).toHaveClass(/message-font-dancing-script/)
